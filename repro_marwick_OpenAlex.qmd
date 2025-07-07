@@ -14,22 +14,22 @@ date: now
 date-format: long
 format:
 
-  html: # put or remove all # in front of html and the following line to produce or not a html file
-    embed-resources: true
-    number-sections: true
-    code-fold: true
-    number-depth: 4
-    page-layout: full
-    toc: true
-    toc-expand: true
-
-#  docx: # put or remove all # in front of docx and the following lines to produce or not a docx file
-#    echo: false
- #   embed-resources: true
-  #  number-sections: true
-   # toc: true
+#  html: # put or remove all # in front of html and the following line to produce or not a html file
+#    embed-resources: true
+#    number-sections: true
+#    code-fold: true
+#    number-depth: 4
+#    page-layout: full
+#    toc: true
 #    toc-expand: true
-#    reference-doc: "templates/template.docx" 
+
+  docx: # put or remove all # in front of docx and the following lines to produce or not a docx file
+   echo: false
+   embed-resources: true
+   number-sections: true
+   toc: true
+   toc-expand: true
+   reference-doc: "templates/template.docx" 
 
 editor_options: 
   chunk_output_type: console
@@ -1738,7 +1738,7 @@ This work confirmed the reproducibility and replicability of the first part of @
 
 # Data and script availability
 
-Data and quarto document allowing to fully reproduce this manuscript are available at XXXX-ZENODO-LINK-XXXX. There is also an html version of this manuscript, more interactive, here: XXXX-GITHUB-LINK-XXXX.
+Data and quarto document allowing to fully reproduce this manuscript are available on [Zenodo](https://doi.org/10.5281/zenodo.15828519). There is also an html version of this manuscript, more interactive, on the [GitHub page](https://aqueff.github.io/replication_Marwick2025_OpenAlex/). You can also make comment, publish issues or commits on [GitHub](https://github.com/AQueff/replication_Marwick2025_OpenAlex).
 
 # Acknowledgements
 
