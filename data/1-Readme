@@ -1,4 +1,6 @@
 This folder contains the data needed to reproduce my replication of Marwick
 
 Especially, it contains the .rdv files that are very time consuming to produce due to the many requests needed to the OpenAlex API.
-Having these files on your computer will allow to reproduce the manuscript without making the dozens of hours of requests to the OpenAlex API. The chunks of code doing these request are therefore in the quarto document but in "eval: false" so that rendering the document do not make the requests. And the chunks following these thus load the .rds.
+Having these files on your computer will allow to reproduce the manuscript without making the dozens of hours of requests to the OpenAlex API. 
+The chunks of code doing these request are therefore in the quarto document but in "eval: false" so that rendering the document do not make the requests. 
+And the chunks following these thus load the .rds.
