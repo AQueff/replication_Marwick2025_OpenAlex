@@ -1,0 +1,1756 @@
+---
+title: "Marwick (2025) \"Is archaeology a science?\": reproducibility for training and replication with OpenAlex for testing."
+author:
+  - name: Alain Queffelec
+    orcid: 0000-0002-9763-7600
+    email: alain.queffelec@u-bordeaux.fr
+    correspondence: "yes"
+    affiliations:
+      - name: UMR CNRS 5199 PACEA, Univ. Bordeaux, Ministère de la Culture
+        address: B2 Allée Geoffroy St. Hilaire
+        city: Pessac
+        postal-code: F-33600
+date: now
+date-format: long
+format:
+
+  html: # put or remove all # in front of html and the following line to produce or not a html file
+    embed-resources: true
+    number-sections: true
+    code-fold: true
+    number-depth: 4
+    page-layout: full
+    toc: true
+    toc-expand: true
+
+#  docx: # put or remove all # in front of docx and the following lines to produce or not a docx file
+#    echo: false
+ #   embed-resources: true
+  #  number-sections: true
+   # toc: true
+#    toc-expand: true
+#    reference-doc: "templates/template.docx" 
+
+editor_options: 
+  chunk_output_type: console
+execute:
+  echo: true
+  warning: false
+  cache: true
+#filters:
+bibliography: references.bib
+csl: "templates/journal-of-archaeological-science.csl" # Insert path for the bib-style
+abstract: |
+  This short document is a replication of the first part of Ben Marwick's paper published in Journal of Archaeological Science in June 2025 that analyzes the hard/soft position of archaeology and the evolution through time (Marwick, 2025). This work is based on a bibliometric analysis of the Web of Science data of archaeological journals and articles, when I use the data from OpenAlex, a free and open-source database instead. This work confirms the computational reproducibility of Marwick (2025). Data from OpenAlex also confirms the trends visible in the replicated study both for the hard/soft science categorization, for the evolution through time and for the classification of different journals, with only some minor differences. This study also emphasizes that using the free and open source OpenAlex database is suitable for this kind of scientometric study instead of commercial databases.
+---
+
+```{r load libraries}
+#| output: false
+#| cache: false
+
+library(openalexR)
+library(dplyr)
+library(ggplot2)
+library(jsonlite)
+library(tools)
+library(stringr)
+library(purrr)
+library(tidyr)
+library(broom)
+```
+\newpage
+
+# Introduction
+
+Replication and reproduction of archaeological studies are extremely rare. Aren't they supposed, though, to be among the pillars of the scientific method [@popper_logic_1959]?
+
+Following the recommendations by @barba_terminologies_2018 and the @nationalacademiesofsciences_reproducibility_2019 which are adopted by @marwick_how_2020, replication is defined as "*arriv*[ing] *at the same scientific findings as another study, collecting new data (possibly with different methods) and completing new analyses*", while reproduction is defined as "*re-creating the results*" given that "*authors provide all the necessary data and the computer codes to run the analysis again*". To tell the truth, I searched for these two words along with the word archaeology in Google Scholar and OpenAlex and didn't find any article replicating or reproducing another archaeological article. Despite growing awareness of reproducibility issues within the community and the the accelerating use of programming languages in archaeological articles [@schmidt_tooldriven_2020], replicability has yet to be embraced. Seizing the opportunity, this manuscript attempts to reproduce and replicate the results published in the first part of @marwick_archaeology_2025 regarding the hard/soft science categorization of archaeology.
+
+Reproduction will use Marwick's shared code and data, serving not only as a means to verify the presented results but also, more importantly, as an opportunity for me to learn new aspects of R, Quarto documents, and the organization of files in such a research project. During this reproduction process, I identified some minor errors, which I reported on the GitHub page of the manuscript. This provided me with an additional opportunity to gain experience with software forges.
+
+The idea to replicate Marwick's result using OpenAlex occured to me while delving into the data during the manuscript reproduction. I was surprised to read in the article that there were so few journals with 100 papers in the Web of Science (WoS) database for archaeology that @marwick_archaeology_2025 had to limit his analysis to just 20 journals. I was also surprised that WoS only includes 108 journals in its Archaeology category. This led me to explore the data on OpenAlex, which initiated the entire process. The replication will thus apply the same methodology to different but supposedly equivalent data, using OpenAlex instead of Web of Science. OpenAlex, as described on the website of its creator, the nonprofit company OurResearch, is an "*open and comprehensive catalog of scholarly papers, authors, institutions, and more*". Established in 2021, it is a free, open source, and open access bibliographic database that can serve as an alternative to commercial databases and is already supported by many public institutions [e.g. @badolato_partenariat_2024;@jack_sorbonnes_2023; @singhchawla_massive_2022;@ourresearchteam_open_2021]. The OpenAlex database has a much broader scope than Web of Science and its dataset is significantly larger [@culbert_reference_2025;@alperin_analysis_2024]. This can be particularly crucial for archaeology, as the vast majority of references cited in publications from the History & Archaeology field (from OECD classification) are not identifiable in WoS [fig. 5 @andersen_fieldlevel_2023]. However, caution must be exercised with the OpenAlex dataset, as some metadata are still relatively poorly documented [@alperin_analysis_2024]. This will necessitate additional filtering in the OpenAlex dataset to focus on usable data rather than the entire dataset. 
+
+## Problems identified in @marwick_archaeology_2025
+
+I will outline here the main issues that I identified with the published version of the manuscript:
+
+-   The manuscript states on page 2 that the selection of the "*top-ranking 25 journals* \[in WoS archaeological was made based on\] *their h-indices as reported by Clarivate’s Journal Citation Indicator*". However, the code of the Quarto document and the dataset itself does not mention H-indices; the filter is actually based on the 2022 Impact Factor of the journals. This is an error in the text of the manuscript, almost a typo, since it does not change anything to the results, but ultimately, the only way to realize that the list of journals is based on the 2022 Impact Factor and not H-indices is by examining the data and code.
+
+-   The dataset of WoS's Impact Factor contains one "\< 0.1" and one "NA" values which integrates the top 25 lines of the dataset when it is arranged in descending order based on this variable. When the values of these two journals's IF are changed to 0, the list of the 25 journals should have included *Journal of African Archaeology* and *World Archaeology* [@tbl-top25Marwick]. Both journals would have maet the criteria for the final list of journals even after applying the threshold of at least 100 papers in WoS, therefore extending this list to include 22 journals.
+
+- The Shannon's index is incorrecly calculated in Marwick's code and, therefore, should not be compared with the data presented in @fanelli_bibliometric_2013. Although it is accurately described in the comments of the code, the code itself incorrectly computes the Shannon index of the references instead of the sources. Specifically, Specifically, it divides p_i, the number of times a reference appears in an article (which is always one, as each reference is listed only once in each article), by the total number of citations of that reference in the entire dataset. Instead, it should calculate the Shannon index of the sources of the references. Additionally, the text of the manuscript is also misleading as it mentions "*The diversity of references*" where it should be "The diversity of sources", as presented in @fanelli_bibliometric_2013.
+
+- The shared code does not contain the code to produce Figure 2 of the manuscript. Version 1.3 of the code loads a pre-existing .png from the figures folder. The code to produce a very similar figure is present in the version 1.1 of the code, but it is not exactly the same.
+
+Other issues are small code errors which I mentioned on GitHub.
+
+![Table presenting the issues with the list of journals selected in Marwick (2025)](figures/IssuesTop25Marwick.png){#tbl-top25Marwick}
+
+# Extracting journals data from OpenAlex
+
+To extract data from journals (and from works in the next section) , I use openalexR which is "*an R package to interface with the OpenAlex API*" [@aria_openalexr_2024].
+
+Unfortunately, obtaining all the journals from a subfield of OpenAlex is not an feasible, as 'journals' are not categorized by fields or subfields in OpenAlex, unlike 'works' (OpenAlex uses the term 'work' to encompass all types of scientific production).
+
+Consequently, I utilized the list of archaeological journals from WoS to retrieve the journal's information from OpenAlex, as this list probably contains the largest journals which will be included in a top 25 list.
+
+```{r Get data of WoS list of journals in OpenAlex (AQ)}
+#| output: false
+
+# list of journals from Marwick's WoS list for all the 108 Archaeology journal in WoS
+journals_marwick = c("JOURNAL OF CULTURAL HERITAGE","AMERICAN ANTIQUITY","JOURNAL OF ARCHAEOLOGICAL SCIENCE","JOURNAL OF ARCHAEOLOGICAL METHOD AND THEORY","Archaeological and Anthropological Sciences","JOURNAL OF FIELD ARCHAEOLOGY","JOURNAL OF ANTHROPOLOGICAL ARCHAEOLOGY","Archaeological Dialogues","ANTIQUITY","Archaeological Prospection","The Journal of Island and Coastal Archaeology","Lithic Technology","GEOARCHAEOLOGY","Journal of Archaeological Science Reports","African Archaeological Review","JOURNAL OF ARCHAEOLOGICAL RESEARCH","ARCHAEOMETRY","Archaeological Research in Asia","European Journal of Archaeology","Mediterranean Archaeology & Archaeometry","ENVIRONMENTAL ARCHAEOLOGY","Advances in Archaeological Practice","Journal of African Archaeology","WORLD ARCHAEOLOGY","Anatolian Studies","CAMBRIDGE ARCHAEOLOGICAL JOURNAL","JOURNAL OF SOCIAL ARCHAEOLOGY","AMERICAN JOURNAL OF ARCHAEOLOGY","Trabajos de Prehistoria","Azania-Archaeological Research in Africa","AUSTRALIAN ARCHAEOLOGY","ARCHAEOLOGY IN OCEANIA","JOURNAL OF MATERIAL CULTURE","LATIN AMERICAN ANTIQUITY","Rock Art Research","Levant","Journal of Mediterranean Archaeology","International Journal of Historical Archaeology","Open Archaeology","Bulletin of the American Schools of Oriental Research","STUDIES IN CONSERVATION","HISTORICAL ARCHAEOLOGY","ACTA ARCHAEOLOGICA","Ancient Mesoamerica","Oxford Journal of Archaeology","Asian Perspectives-The Journal of Archaeology for Asia and the Pacific","NEAR EASTERN ARCHAEOLOGY","Journal of Roman Archaeology","Medieval Archaeology","Palestine Exploration Quarterly","JOURNAL OF NEAR EASTERN STUDIES","Norwegian Archaeological Review","Praehistorische Zeitschrift","Journal of Maritime Archaeology","Archeologicke Rozhledy","Archivo Espanol de Arqueologia","Journal of the British Archaeological Association","ZEITSCHRIFT DES DEUTSCHEN PALASTINA-VEREINS","Estudios Atacamenos","Arheoloski Vestnik","ARCHAEOFAUNA","Britannia","Complutum","ANTHROPOZOOLOGICA","Zeitschrift fur Assyriologie und Vorderasiatische Archaologie","Industrial Archaeology Review","NORTH AMERICAN ARCHAEOLOGIST","Arqueologia","Post-Medieval Archaeology","JOURNAL OF EGYPTIAN ARCHAEOLOGY","OLBA","Conservation and Management of Archaeological Sites","Boletin del Museo Chileno de Arte Precolombino","Public Archaeology","Belleten","Akkadica","Archaologisches Korrespondenzblatt","Adalya","Vjesnik za arheologiju i povijest dalmatinsku","Aula Orientalis","BULLETIN MONUMENTAL","ZEITSCHRIFT FUR AGYPTISCHE SPRACHE UND ALTERTUMSKUNDE","TRANSACTIONS OF THE ANCIENT MONUMENTS SOCIETY","JOURNAL OF WORLD PREHISTORY","INTERNATIONAL JOURNAL OF OSTEOARCHAEOLOGY","Estonian Journal of Archaeology","ARCHAEOLOGY","Journal of Historic Buildings and Places","Arabian archaeology and epigraphy","Archaeological Reports","Archaeologies","Archäologisches Korrespondenzblatt","Archeologické rozhledy","ArchéoSciences","Archivo Español de Arqueología","Arheološki vestnik","Arqueología","Asian perspectives","Aula orientalis: revista de estudios del Próximo Oriente Antiguo","Azania Archaeological Research in Africa","Boletín del Museo Chileno de Arte Precolombino","Fornvännen","Hesperia The Journal of the American School of Classical Studies at Athens","Intersecciones en antropología","Iran","Israel exploration journal","Mediterranean Archaeology & Archaeometry. International Journal/Mediterranean archaeology and archaeometry. International scientific journal","Opuscula Annual of the Swedish Institutes at Athens and Rome",
+"Památky archeologické","Rossiiskaia arkheologiia","Tel Aviv","The Annual of the British School at Athens","The Bulletin of the American Society of Papyrologists","The International Journal of Nautical Archaeology","The journal of egyptian archaeology","The Journal of Island and Coastal Archaeology","The Journal of Juristic Papyrology","The South African Archaeological Bulletin","Time and Mind","Trabajos de Prehistoria","Transactions of The Ancient Monuments Society","Vjesnik za arheologiju i povijest dalmatinsku","Zeitschrift des Deutschen Palästina-Vereins","Zeitschrift für Ägyptische Sprache und Altertumskunde","Zeitschrift für Assyriologie und Vorderasiatische Archäologie","Zephyrvs")
+
+journals_marwick <- toTitleCase(tolower(journals_marwick))
+
+sources_extract <- oa_fetch(
+  entity = "sources",
+  display_name = journals_marwick,
+  type = "Journal",
+  count_only = FALSE,
+  options = list(sort = "display_name:desc"),
+  verbose = TRUE
+)
+
+sources_extract %>% distinct(display_name, .keep_all = TRUE)
+
+Journal_metrics = sources_extract$summary_stats
+h_index <- as.numeric(sapply(Journal_metrics, function(x) x[2]))
+twoyr_mean_citedness <- round(as.numeric(sapply(Journal_metrics, function(x) x[1])),2)
+i10 <- as.numeric(sapply(Journal_metrics, function(x) x[3]))
+
+id_all = sources_extract$id 
+sources_extract$id = gsub('https://openalex.org/', '' ,sources_extract$id)
+
+sources_extract_simple <- sources_extract %>%
+  mutate(twoyr_mean_citedness = twoyr_mean_citedness, h_index = h_index, i10 = i10, OpenAlex_id = id) %>%
+  distinct(display_name, .keep_all = TRUE) %>%
+  arrange(`display_name`)
+
+sources_extract_simple <- sources_extract_simple %>% select(display_name, host_organization_name, works_count, cited_by_count, twoyr_mean_citedness, h_index, i10, OpenAlex_id)
+
+saveRDS(sources_extract_simple, "data/sources_extract_simple.rds")
+write.csv(sources_extract_simple, "data/sources_extract_simple.csv")
+
+jci_top_25_2ymc <- 
+  sources_extract_simple %>% 
+  arrange(desc(`twoyr_mean_citedness`)) %>%
+  slice(1:25)
+
+id_25_2ymc = gsub("https://openalex.org/","",jci_top_25_2ymc$OpenAlex_id)
+
+jci_top_25_hindex <- 
+  sources_extract_simple %>% 
+  arrange(desc(`h_index`)) %>% 
+  slice(1:25)
+
+jci_top_25_i10 <- 
+  sources_extract_simple %>% 
+  arrange(desc(`i10`)) %>%
+  slice(1:25)
+```
+
+While requesting OpenAlex with the list of 108 journals from WoS, I received only 38 results. This is due to variations in journal names, such as the use of capitals letters, dashes, etc. When I adjusted manually the names to match those in OpenAlex for the journals which are further used in Marwick's top 25 and top 20 lists, I received 69 results, including all the journals from these lists.
+
+To gather information from OpenAlex for as many journals as possible, I had to check each journal individually with his name or sometimes its ISSN. This was necessary because special characters from journal names have been removed in the WoS dataset, many journals which title begins with "The" are in the WoS dataset without the "The", among similar issues. For example in WoS a journal is called 'Hesperia' when it is called 'Hesperia The Journal of the American School of Classical Studies at Athens' in OpenAlex. Unfortunately, this task of extracting journals is not straightforward, and it would be much more efficient that the journals in OpenAlex have also fields and subfields to request. Ultimately, I successfully retrieved data through openalexR and the API for 85 out of the 108 journals listed in WoS. However, increasing the count from 69 to 85 did not alter the top 25, and the still missing journals likely would not have been in the top 25 either, given that they are not major journals.
+
+## Comparison journal list between Wos and OpenAlex {#sec-compa_journals_lists}
+
+### General comparison of archaeological journals in both databases
+
+Once the 85 journals' information are extracted, it is possible to compare OpenAlex and WoS datasets at the journal level. First, the observation that first striked me that there are only 108 journals in the archaeology category of WoS is unfortunately difficult to compare with OpenAlex since I cannot extract all the journals by the subfield Archaeology. I therefore filtered the OpenAlex dataset of all articles published between 1975 and 2025 with the subfield Archaeology, and grouped them by source (and removing some sources which are not journals but online repositories and deleted journals). This treatment, which probably closely mimics the extraction of all archaeological journals, retrieves 195 sources, almost twice the number of WoS archaeological journals. This difference is due to the fact that being indexed in WoS necessitate application by the journal and is decided by Clarivate based on criteria. 
+
+The WoS dataset is also small in terms of papers listed even when comparing journals present in both databases. It is interesting to demonstrate this by looking at those journals which have been removed from Marwick's top 25 list because they had less than 100 articles. *Archaeological Dialogues* (94 papers in Wos), *Journal of World Prehistory* (63 papers in WoS), and *Lithic Technology* (60 papers in WoS) have respectively 700, 328, and 778 papers in the OpenAlex database.
+
+The metadata of both datasets are also different. OpenAlex gives much more variables and information on the selected works or journals than WoS, at least in the data shared in @marwick_archaeology_2025 (which may be a selection of the variables). 
+
+Since these datasets are not the same size, not the same exact quality on the same variables, I cleaned it as much as possible as Marwick did too for his data.
+
+### Comparison of the top 25 list for both databases
+
+The next step was to extract from the 85 journals the top 25 journals based on their 2-years-mean-citedness (2ymc) which is the same as Impact Factor. This list can then be compared with the list from WoS. 
+
+Both lists are at the same time similar and pretty different. I can outline here some specific points: 
+
+-   As for the WoS list, the 25 journals are English-language journals.
+
+-   The journal *Australian Archaeology* is ranking \#1 with a 2ymc of 7.74. This is very surprising!
+
+-   *American Antiquity* is missing from the list because it has a pretty low 2ymc in OpenAlex and is therefore ranked 45th. It's OpenAlex H-index is on the other side very high, is it an error from the OpenAlex database?
+
+-   All the 25 journals have largely more than 100 works in the OpenAlex dataset, so we can keep them all based on Marwick's decision to keep only journals for further analysis. The minimum here is 316 works for *Journal of Archaeological Research*.
+
+-   Other pretty strong discrepancies (\>20) between the 2ymc rankings from OpenAlex and the IF ranking from Web of Science can be detected for the journals *Levant*, *Lithic Technology*, *Palestine Exploration Quarterly*, *Studies in Conservation*.
+
+-   The OpenAlex dataset also containing other journal's metrics H-indices and i10, I also made the top25-rankings on these metrics (@tbl-top25OpenAlex). H index defined as the number of papers (h) with citation number ≥ h [@hirsch_index_2005]. The i10 index, created initially by Google Scholar, is the number of articles that have been cited at least 10 times.
+
+![Table of the top 25 journals for different metrics in the OpenAlex dataset: 2-years-mean-citedness, H index and i10](figures/Top25OpenAlex.png){#tbl-top25OpenAlex}
+
+# Extracting articles data from OpenAlex
+
+## Using the API via web browser
+
+I attempted to download all articles from OpenAlex in the subfield of Archaeology (number 1204) by accessing the API through an internet browser at this address: [https://api.openalex.org/works?filter=type:article,from_publication_date:1975-01-01,to_publication_date:2025-12-31,topics.subfield.id:1204](https://api.openalex.org/works?filter=type:article,from_publication_date:1975-01-01,to_publication_date:2025-12-31,topics.subfield.id:1204). This results in a gigantic list of almost 1.8 million references that can only be viewed 25 entries at a time. If you download it as JSON files, it is only by a single page of the first 25 or at best 100 results. This is not feasible manually. For such large queries, the OpenAlex team recommends downloading their full dataset, a 300 GB JSON file. However, I didn't even try this way because I am unsure if I can handle such a large file, given my lack of experience in manipulating huge JSON files.
+
+## Using the openalexR package
+
+```{r Counting papers Archaeology in OpenAlex}
+#| label: Download works from OpenAlex through API
+
+# This chunk of code is long to run so it is eval: false so that you run it only once and at the end it saves to disk the data and that it does not need to be run each time you render the quarto document.
+
+# Here we just count the number of articles in the subfield Archaeology 
+works_search_count <- oa_fetch(
+  entity = "works",
+  type = "article",
+  topics.subfield.id = "1204", # 1204 is the id of the subfield Archaeology
+  count_only = TRUE,
+  output = "dataframe",
+  from_publication_date = "1975-01-01",
+  to_publication_date = "2025-12-31",
+  verbose = TRUE
+)
+```
+
+When requesting works with *openalexR*, it is possible to use an entire subfield ID, in this case, 1204 for Archaeology. Simply counting counting the number of articles in the subfield Archaeology in OpenAlex between 1975 and 2025 yields a result of `r works_search_count[1]`. Given the size of this sample, I will not download the complete dataset for this request.
+
+I downloaded the data for each article only for the OpenAlex top 25  journalsbased on 2-years-mean-citedness. This process is time-consuming, as it involves substantial requests to the API. Then, to replicate the figures from Marwick's study, I downloaded all the information from the cited papers for each article. This particular step took even longer, requiring approximately a dozen hours.
+
+The data was not extracted, and the graphics not produced for the top 25 journals based on other available metrics such as H-index and i10. This is because these metrics are strongly correlated with the seniority of the journals, similar to when these metrics are used to compare individual researchers. It would have required downloading all the data for 12 supplementary journals that rank in the top 25 for these other metrics.
+
+```{r Downloading OpenAlex works from top25 2ymc journals}
+#| eval: false
+
+#very time consuming but result saved in .rds 
+
+# Below the code download several batch of data only for the top25 journals identified by their 2ymc value so that it is too big, and then bind them all together in a single tibble with the necessary variables and not all of them.
+
+works_search_1975_1985 <- oa_fetch(
+  entity = "works",
+  type = "article",
+  journal = id_25_2ymc, # id is the list of top25 2ymc journals OpenAlex ids
+  count_only = FALSE,
+  output = "dataframe",
+  from_publication_date = "1975-01-01",
+  to_publication_date = "1985-12-31",
+  verbose = TRUE
+)
+
+works_search_1986_1995 <- oa_fetch(
+  entity = "works",
+  type = "article",
+  journal = id_25_2ymc, # id is the list of top25 2ymc journals OpenAlex ids
+  count_only = FALSE,
+  output = "dataframe",
+  from_publication_date = "1986-01-01",
+  to_publication_date = "1995-12-31",
+  verbose = TRUE
+)
+
+works_search_1996_2000 <- oa_fetch(
+  entity = "works",
+  type = "article",
+  journal = id_25_2ymc, # id is the list of top25 2ymc journals OpenAlex ids
+  count_only = FALSE,
+  output = "dataframe",
+  from_publication_date = "1996-01-01",
+  to_publication_date = "2000-12-31",
+  verbose = TRUE
+)
+
+works_search_2001_2003 <- oa_fetch(
+  entity = "works",
+  type = "article",
+  journal = id_25_2ymc, # id is the list of top25 2ymc journals OpenAlex ids
+  count_only = FALSE,
+  output = "dataframe",
+  from_publication_date = "2001-01-01",
+  to_publication_date = "2003-12-31",
+  verbose = TRUE
+)
+
+works_search_2004_2007 <- oa_fetch(
+  entity = "works",
+  type = "article",
+  journal = id_25_2ymc, # id is the list of top25 2ymc journals OpenAlex ids
+  count_only = FALSE,
+  output = "dataframe",
+  from_publication_date = "2004-01-01",
+  to_publication_date = "2007-12-31",
+  verbose = TRUE
+)
+
+works_search_2008_2011 <- oa_fetch(
+  entity = "works",
+  type = "article",
+  journal = id_25_2ymc, # id is the list of top25 2ymc journals OpenAlex ids
+  count_only = FALSE,
+  output = "dataframe",
+  from_publication_date = "2008-01-01",
+  to_publication_date = "2011-12-31",
+  verbose = TRUE
+)
+
+works_search_2012_2015 <- oa_fetch(
+  entity = "works",
+  type = "article",
+  journal = id_25_2ymc, # id is the list of top25 2ymc journals OpenAlex ids
+  count_only = FALSE,
+  output = "dataframe",
+  from_publication_date = "2012-01-01",
+  to_publication_date = "2015-12-31",
+  verbose = TRUE
+)
+
+works_search_2016_2019 <- oa_fetch(
+  entity = "works",
+  type = "article",
+  journal = id_25_2ymc, # id is the list of top25 2ymc journals OpenAlex ids
+  count_only = FALSE,
+  output = "dataframe",
+  from_publication_date = "2016-01-01",
+  to_publication_date = "2019-12-31",
+  verbose = TRUE
+)
+
+works_search_2020_2023 <- oa_fetch(
+  entity = "works",
+  type = "article",
+  journal = id_25_2ymc, # id is the list of top25 2ymc journals OpenAlex ids
+  count_only = FALSE,
+  output = "dataframe",
+  from_publication_date = "2020-01-01",
+  to_publication_date = "2023-12-31",
+  verbose = TRUE
+)
+
+works_search_2024_2025 <- oa_fetch(
+  entity = "works",
+  type = "article",
+  journal = id_25_2ymc, # id is the list of top25 2ymc journals OpenAlex ids
+  count_only = FALSE,
+  output = "dataframe",
+  from_publication_date = "2024-01-01",
+  to_publication_date = "2025-12-31",
+  verbose = TRUE
+)
+
+# Combining the data together
+liste_tibbles <- list(works_search_1975_1985,works_search_1986_1995,works_search_1996_2000,works_search_2001_2003,works_search_2004_2007,works_search_2008_2011,works_search_2012_2015,works_search_2016_2019,works_search_2020_2023,works_search_2024_2025)
+
+
+# Define the variables we want to keep
+variables_to_keep <- c("id", "title", "authorships","doi","publication_year","source_display_name","host_organization_name","referenced_works_count","first_page","last_page","abstract","referenced_works")
+
+# Apply the selection to the giant list of papers extracted from OpenAlex
+# and cleaning it (titles, page numbers, preparing authors' lists, removing duplicates)
+
+Works_top25_1975_2025 <- bind_rows(lapply(liste_tibbles, function(x) {
+  x %>% select(all_of(variables_to_keep)) })) %>% 
+  mutate(title = str_trim(title)) %>% # delete double space
+  mutate(title = str_to_lower(title)) %>% # put titles to lower case
+  mutate(title = str_remove(title, "<i>")) %>%
+  mutate(title = str_remove(title, "</i>")) %>% 
+  mutate(first_page = str_remove(first_page, "P")) %>%
+  mutate(last_page = str_remove(last_page, "P")) %>%
+  mutate(last_page = str_remove(referenced_works, "\n")) %>%
+  mutate(authors = map_chr(authorships, ~ paste(.x$display_name, collapse = ", "))) %>%
+  distinct(title, .keep_all = TRUE)  # removes ca. 1477 works present more than once (based on title)
+
+# Prepare dataframe exactly as in Marwick 2025
+items_df = dplyr::tibble(
+    authors =         Works_top25_1975_2025$authors,
+    authors_n =       map_int(Works_top25_1975_2025$authorships, ~ nrow(.x)),
+    title =           Works_top25_1975_2025$title,
+    title_n =         sapply(strsplit(Works_top25_1975_2025$title, "\\s+"), length),
+    journal =         Works_top25_1975_2025$source_display_name,
+    abstract  =       Works_top25_1975_2025$abstract,
+    refs =            Works_top25_1975_2025$referenced_works,
+    refs_n =          Works_top25_1975_2025$referenced_works_count,
+    pages_n =         as.numeric(Works_top25_1975_2025$last_page)-as.numeric(Works_top25_1975_2025$first_page),
+    year =            Works_top25_1975_2025$publication_year,
+    doi =             Works_top25_1975_2025$doi
+  )
+
+items_df = items_df %>% filter(journal %in% jci_top_25_2ymc$display_name)
+
+# save to disk so we can re-use it for the next steps to save time
+saveRDS(items_df, "data/OpenAlex_Works_top25_1975_2025.rds")
+```
+
+```{r get year and journals of refs through OpenAlex API (AQ)}
+#| label: get year for each ref of each paper
+#| eval: false
+#very time consuming but result saved in .rds
+
+# Beware this takes tens of hours (49k requests to the API) and should not be run if not really necessary
+# Use the result year_refs_list.rds instead
+# Thus, I put eval: false to this chunk so that it does not run when rendering the quarto document!
+
+items_df = readRDS("OpenAlex_Works_top25_1975_2025.rds")
+
+# Keeping only the OpenAlex ID of each ref in the refs variable
+items_df = items_df  %>% 
+  mutate(refs = str_remove_all(refs, "https://openalex.org/")) %>%
+  mutate(refs = str_remove(refs, "^c\\(")) %>%
+  mutate(refs = str_remove_all(refs, '"')) %>%
+  mutate(refs = str_remove_all(refs, '\\)'))
+
+# Creating the list before the loop
+year_refs_list <- list()
+journal_refs_list <- list()
+
+# Loop for getting the list of all refs for each paper and keeping only its publication years 
+# (very very long)
+for (i in 1:nrow(items_df)) {
+year_refs_search <- tryCatch({
+  oa_fetch(
+  entity = "works",
+  identifier = strsplit(items_df$refs[[i]], ", ")[[1]],
+  count_only = FALSE,
+  output = "dataframe",
+  verbose = TRUE,
+  mailto = "alain.queffelec@u-bordeaux.fr"
+) 
+}, error = function(e) {
+    message(paste("Error fetching data for row", i, ": ", e$message))
+    NULL
+  })
+
+if (!is.null(year_refs_search)) {
+    year_refs <- year_refs_search$publication_year
+    journals <- year_refs_search$source_display_name
+    year_refs_list[[i]] <- year_refs
+    journal_refs_list[[i]] <- journals
+  }
+}
+
+# Save the list on the disk
+saveRDS(year_refs_list, "year_refs_list.rds")
+saveRDS(journal_refs_list, "journal_refs_list.rds")
+```
+
+## Comparison between WoS and OpenAlex
+
+As previously demonstrated at a higher level than just archaeology, the OpenAlex dataset is significantly larger than the Wos dataset but has limitations regarding some metadata [@culbert_reference_2025;@alperin_analysis_2024]. Nevertheless, for this specific subfield, here is what I observe:
+
+-   The WoS dataset of archaeological articles is much smaller than the OpenAlex dataset: 28,871 compared to 1,788,444. OpenAlex aggregates data from a much wider diversity of sources.
+
+-   The Wos dataset is cleaner than the OpenAlex dataset. I had to remove duplicates, papers without authors information, page numbers, reference list etc. 
+
+-   The WoS dataset is not without its issues either. Upon examining the data produced during the preparation of Marwick's manuscript, problems remain even after cleaning by his code due to discrepancies in the references' structure. For instance, in the first 4 lines, entries like “11swmuspap” or “1964uclaarchsurv” appear as journals, which, of course, won't match other mentions of these same journals due to the remaining numbers. Additionally, even in the top-cited journals used for calculating the Shannon's indices, there are problems in the WoS dataset. This list includes entries such as “\[anonymous\]thesis”, "" (empty cells), "notitlecaptured" etc.
+
+# Replicating Marwick's results with OpenAlex data
+
+The goal here is to replicate the figures from @marwick_archaeology_2025 using data from OpenAlex. This requires some effort to prepare the extensive list of papers, including the information on the references they cite. However, in the end, it works well for creating the boxplot figure.
+
+```{r load, clean, prepare data from OpenAlex (AQ)}
+library(tidyverse)
+
+# Load the .rds files created by the very time consuming chunks of code run above in the Quarto document
+items_df <- readRDS("data/OpenAlex_Works_top25_1975_2025.rds")
+year_refs_list = readRDS("data/year_refs_list.rds")
+journal_refs_list = readRDS("data/journal_refs_list.rds")
+
+# Simplify the journal names so that there is no more points, commas etc. 
+journal_refs_list <- lapply(journal_refs_list, function(x) gsub("[^a-zA-Z]", "", x))
+journal_refs_list <- lapply(journal_refs_list, function(x) gsub("[\\(]", "", x))
+
+# Add the year_refs and journal_refs to items_df
+for (i in 1:nrow(items_df)){
+items_df$year_refs[i] = paste(year_refs_list[[i]], collapse = ", ")
+items_df$journal_refs[i] = paste(journal_refs_list[[i]], collapse = ", ")
+}
+
+# Get the OpenAlex IDs alone for each ref and split 
+items_df = items_df  %>% 
+  mutate(refs = str_remove_all(refs, "https://openalex.org/")) %>%
+  mutate(refs = str_remove(refs, "^c\\(")) %>%
+  mutate(refs = str_remove_all(refs, '"')) %>%
+  mutate(refs = str_remove_all(refs, '\\)')) %>%
+  mutate(refs = str_remove_all(refs, '\n')) %>%
+  mutate(journal_refs = str_remove_all(journal_refs, " ,"))
+
+# Fill the refs and journal_refs so that their length does match because sometimes it doesn't due to some absence in OpenAlex dataset
+
+length_IDrefs = lapply(items_df$refs, function(x) {
+  split_result <- strsplit(x, ", ")[[1]]
+  if (length(split_result) == 1 && split_result[1] == "") {
+    0} else {length(split_result)}})
+
+length_journal_refs <- lapply(items_df$journal_refs, function(x) {
+  split_result <- strsplit(x, ", ")[[1]]
+  if (length(split_result) == 1 && split_result[1] == "") {0} 
+  else {length(split_result)}})
+
+items_df$length_IDrefs = length_IDrefs
+items_df$length_journal_refs = length_journal_refs
+items_df$refs_mod = items_df$refs
+items_df$journal_refs_mod = items_df$journal_refs
+
+generate_unique_false_ref <- function() {
+  paste0("R", paste0(sample(0:9, 10, replace = TRUE), collapse = ""))
+} # generate false OpenAlex IDs beginning with an R for reference instead of W so that we can detect them
+generate_unique_false_journal <- function() {
+  paste0("J", paste0(sample(0:9, 10, replace = TRUE), collapse = ""))
+} # generate false OpenAlex IDs beginning with an J for Journal so that we can detect them
+
+for (i in 1:nrow(items_df)) {
+    len_diff = items_df$length_IDrefs[[i]][1] - items_df$length_journal_refs[[i]][1]
+    if (len_diff != 0) {  
+      if (len_diff > 0 & items_df$length_journal_refs[i] > 0) {
+        # Create false unique journals if necessary
+        false_journals <- tibble(replicate(len_diff, generate_unique_false_journal()))
+        items_df$journal_refs_mod[i] <- rbind(items_df$journal_refs_mod[i], false_journals)
+      } else if (len_diff < 0) {
+        # Create false unique refs if necessary
+        false_refs <- replicate(abs(len_diff), generate_unique_false_ref())
+        items_df$refs_mod[i] <- rbind(items_df$refs_mod[i], false_refs)
+      } else {
+        false_journals <- tibble(replicate(len_diff, generate_unique_false_journal()))
+        false_refs <- replicate(abs(len_diff), generate_unique_false_ref())
+        items_df$journal_refs_mod[i] <- false_journals
+        items_df$refs_mod[i] <- false_refs
+      }
+    }
+}
+
+items_df = items_df  %>% 
+  mutate(journal_refs_mod = str_remove(journal_refs_mod, "^c\\(")) %>%
+  mutate(journal_refs_mod = str_remove_all(journal_refs_mod, '"')) %>%
+  mutate(journal_refs_mod = str_remove_all(journal_refs_mod, '\\)')) %>%
+  mutate(journal_refs_mod = str_remove_all(journal_refs_mod, ' ,'))
+
+items_df = items_df %>% filter(title_n !=0,
+                               pages_n > 0,
+                               pages_n != 0,
+                               pages_n < 1000,
+                               authors_n > 0)
+```
+
+```{r basic stats (BM)}
+n_articles <- nrow(items_df)
+year_max <- max(items_df$year)
+year_min <- min(items_df$year)
+
+items_df_2012 <- 
+  items_df %>% 
+  filter(year == 2012)
+
+# how many archaeology articles in 2012
+n_items_df_2012 <- nrow(items_df_2012)
+
+# how many after 2012?
+n_items_df_after_2012 <- 
+  items_df %>% 
+  filter(year %in% 2013:year_max) %>% 
+  nrow()
+
+# what proportion of archaeology articles published after 2012
+prop_pub_after2012 <-  n_items_df_after_2012  / n_articles
+```
+
+As of the writing of this document (June 2025), and after automatically cleaning the dataset extracted from OpenAlex, there are `r nrow(items_df)` unique articles from 1975 to 2025 in the top 25 journals (identified by their 2-years-mean-citedness), for which the necessary variables to replicate Marwick's results are available. Among these, 10,402 papers have zero references, likely due to missing data in OpenAlex rather than an actual absence of references. The entire code of @marwick_archaeology_2025 can then be executed with *only few* modifications.
+
+## How does archaeology compare to other fields?
+
+```{r prepare fig. 1 (BMmodAQ)}
+library(ggrepel)
+
+source("code/001-redraw-Fanelli-and-Glanzel-Fig-2.R")
+
+base_size <- 6
+color <- c('#d95f02', '#7570b3',  '#1b9e77')
+alpha <- 0.2
+linewidth <- 0.1
+
+# Number of authors ------------------
+boxlplot_n_authors <- 
+  ggplot() +
+  # boxplot of data from this study
+  geom_boxplot(data = items_df %>% 
+  filter(!is.na(year)),
+  aes(1, log(authors_n)),
+               size = 1)  +
+  # boxplot of data from Fanelli & Glänzel Fig 2
+  geom_boxplot(data = sim_data %>% 
+  filter(Variable == "N. of authors (ln)",
+         Category %in% c("h", "p", "s")),
+  aes(1, Value, 
+      group = Category),
+  size = 1,
+  fill = color,
+  colour = color, 
+  alpha = alpha,
+  linewidth = linewidth)  +
+  # annotations from Fanelli & Glänzel Fig 2
+  geom_text_repel(data = sim_data %>%  
+    filter(Variable == "N. of authors (ln)",
+           Category %in% c("h", "p", "s")) %>%  
+    group_by(Category) %>%  
+    summarise(y = median(Value)) %>%
+    mutate(
+      label = as.character(Category)
+    ),
+                  aes(c(0.75, 1, 1.25), y, label = label),
+                  color = color,
+                  bg.colour = "white", 
+                  bg.r = .2, 
+                  force = 0) +
+  scale_y_continuous(limits = c(0, 5)) +
+  scale_x_continuous(labels = NULL) +
+  theme_minimal(base_size = base_size) + 
+  theme(panel.grid  = element_blank()) +
+  ylab("N. of authors (ln)") +
+  xlab("Collaborator group size") 
+
+
+# Relative title length  ----------------
+
+items_df_title <- 
+  items_df %>% 
+  filter(!is.na(pages_n)) %>%  
+  filter(!is.na(title_n)) %>% 
+  mutate(relative_title_length = log(title_n / pages_n))
+
+boxlplot_rel_title_length <- 
+items_df_title %>% 
+  filter(!is.na(year)) %>% 
+  ggplot(aes(1,
+             relative_title_length)) +
+  geom_boxplot(
+               size = 1)  +
+  # boxplot of data from Fanelli & Glänzel Fig 2
+  geom_boxplot(data = sim_data %>% 
+  filter(Variable == "Relative title length (ln)",
+         Category %in% c("h", "p", "s")),
+  aes(1, Value, 
+      group = Category),
+  size = 1,
+  fill = color,
+  colour = color, 
+  alpha = alpha,
+  linewidth = linewidth)  +
+  # annotations from Fanelli & Glänzel Fig 2
+  geom_text_repel(data = sim_data %>%  
+    filter(Variable == "Relative title length (ln)", 
+           Category %in% c("h", "p", "s")) %>%  
+    group_by(Category) %>%  
+    summarise(y = median(Value)) %>%
+    mutate(
+      label = as.character(Category)
+    ),
+                  aes(c(0.75, 1, 1.25), y, label = label),
+                  bg.colour = "white", 
+    colour = color,
+                  bg.r = .2, 
+                  force = 0) +
+  scale_y_continuous(limits = c(-4.5, 3),
+                     breaks =  seq(-5, 5, 1),
+                     labels = seq(-5, 5, 1)) +
+  scale_x_continuous(labels = NULL) +
+  theme_minimal(base_size = base_size) +
+  theme(panel.grid  = element_blank()) +
+  ylab("Ratio of title length to article length (ln)") +
+  xlab("Relative title length")
+
+# Number of pages ------------------
+boxlplot_n_pages <- 
+items_df %>% 
+  ggplot(aes(1,
+             log(pages_n))) +
+  geom_boxplot(
+               size = 1)  +
+  # boxplot of data from Fanelli & Glänzel Fig 2
+  geom_boxplot(data = sim_data %>% 
+  filter(Variable == "N. of pages (ln)",
+         Category %in% c("h", "p", "s")),
+  aes(1, Value, 
+      group = Category),
+  size = 1,
+  fill = color,
+  colour = color, 
+  alpha = alpha,
+  linewidth = linewidth)  +
+  # annotations from Fanelli & Glänzel Fig 2
+  geom_text_repel(data = sim_data %>%  
+    filter(Variable == "N. of pages (ln)", 
+           Category %in% c("h", "p", "s")) %>%  
+    group_by(Category) %>%  
+    summarise(y = median(Value)) %>%
+    mutate(
+      label = as.character(Category)
+    ),
+                  aes(c(0.75, 1, 1.25), y, label = label),
+                  bg.colour = "white",
+    colour = color, 
+                  bg.r = .2, 
+                  force = 0) +
+  scale_y_reverse(limits = c(5, 0)) +
+  scale_x_continuous(labels = NULL) +
+  theme_minimal(base_size = base_size) + 
+  theme(panel.grid  = element_blank()) +
+  ylab("N. of pages (ln)") +
+  xlab("Article length")
+
+# Price's index - age of references ------------------
+library(stringr)
+
+# output storage
+prices_index <- vector("list", length = nrow(items_df))
+
+# loop, this takes a moment
+for(i in seq_len(nrow(items_df))){
+  
+  refs <-  items_df$year_refs[i]
+  year <-  items_df$year[i]
+  
+  ref_years <- 
+    as.numeric(str_match(str_extract_all(refs, "[0-9]{4}")[[1]], "\\d{4}"))
+  
+  preceeding_five_years <-  
+    seq(year - 5, year, 1)
+  
+  refs_n_in_preceeding_five_years <- 
+    ref_years[ref_years %in% preceeding_five_years]
+  
+  prices_index[[i]] <- 
+    length(refs_n_in_preceeding_five_years) / length(ref_years)
+  
+  # for debugging
+  # print(i)
+  
+}
+
+prices_index <- flatten_dbl(prices_index)
+
+# add to data frame
+items_df$prices_index <-  prices_index
+
+# plot
+boxlplot_price_index <- 
+items_df %>% 
+  ggplot(aes(1,
+             prices_index)) +
+  geom_boxplot(
+               size = 1)  +
+  # boxplot of data from Fanelli & Glänzel Fig 2
+  geom_boxplot(data = sim_data %>% 
+  filter(Variable == "Price's index",
+         Category %in% c("h", "p", "s")),
+  aes(1, Value, 
+      group = Category),
+  size = 1,
+  fill = color,
+  colour = color,  
+  alpha = alpha,
+  linewidth = linewidth)  +
+  # annotations from Fanelli & Glänzel Fig 2
+  geom_text_repel(data = sim_data %>%  
+    filter(Variable == "Price's index", 
+           Category %in% c("h", "p", "s")) %>%  
+    group_by(Category) %>%  
+    summarise(y = median(Value)) %>%
+    mutate(
+      label = as.character(Category)
+    ),
+                  aes(c(0.75, 1, 1.25), y, label = label),
+                  bg.colour = "white", colour = color, 
+                  bg.r = .2, 
+                  force = 0) +
+  scale_y_continuous(limits = c(0, 1)) +
+  scale_x_continuous(labels = NULL) +
+  theme_minimal(base_size = base_size) +
+  theme(panel.grid  = element_blank()) +
+  ylab("Prop. refs in last 5 years") +
+  xlab("Recency of references")
+
+# Shannon index - diversity of sources ------------------
+# journal name as species, article as habitat
+
+# simplify the refs, since they are a bit inconsistent, some of
+# these steps take a few seconds
+ref_list1 <- map(items_df$journal_refs_mod, ~tolower(.x))
+ref_list2 <- map(ref_list1, ~str_split(.x, ", "))
+ref_list3 <- map(ref_list2, ~tibble(x = .x))
+ref_list4 <- bind_rows(ref_list3, .id = "id")
+refs_mod <- tibble(refs_mod = str_split(items_df$refs_mod, ", ")) 
+ref_list5 <- cbind(ref_list4, refs_mod)
+ref_list6 <- unnest(ref_list5, cols = c(x,refs_mod)) %>% 
+  filter(!str_detect(refs_mod, "^R\\d{10}$"))
+
+ref_list7 <- 
+  ref_list6 %>% 
+  rename(journal_name = x, x = refs_mod) %>%
+  filter(x != "W4285719527") %>%
+  filter(!journal_name %in% c("na","choicereviewsonline","pubmed","hallecentrepourlacommunicationscientifiquedirecte","doajdoajdirectoryofopenaccessjournals")) %>%
+  filter(!str_detect(journal_name, "books"))
+
+# prepare to compute shannon and join with other variables
+items_df$id <- 1:nrow(items_df)
+
+
+# In the Shannon index, p_i is the proportion (n/N) of individuals of one particular species (reference) found (n) divided by the total number of individuals found (N) in the article, ln is the natural log, Σ is the sum of the calculations, and s is the number of species. 
+
+# compute diversity of all citations for each article (habitat)
+
+shannon_per_item_AQ <- 
+  ref_list7 %>% 
+  group_by(id, journal_name) %>% 
+  tally() %>% 
+  group_by(id) %>%
+  mutate(p_i = n / sum(n, na.rm = TRUE)) %>% 
+  mutate(p_i_ln = log(p_i)) %>%
+  summarise(shannon = -sum(p_i * p_i_ln, na.rm = TRUE)) %>% 
+  mutate(id = as.numeric(id)) %>% 
+  arrange(id) %>%
+  left_join(items_df)
+
+# plot
+boxlplot_shannon_index_AQ <- 
+shannon_per_item_AQ %>% 
+  filter(!is.na(year)) %>%
+  filter(shannon > 0) %>%
+  ggplot(aes(1,
+             shannon)) +
+  geom_boxplot(
+               size = 1)  +
+   # boxplot of data from Fanelli & Glänzel Fig 2
+  geom_boxplot(data = sim_data %>% 
+  filter(Variable == "Shannon div. of sources",
+         Category %in% c("h", "p", "s")),
+  aes(1, Value, 
+      group = Category),
+  size = 1,
+  fill = color,
+  colour = color,  
+  alpha = alpha,
+  linewidth = linewidth)  +
+  # annotations from Fanelli & Glänzel Fig 2
+  geom_text_repel(data = sim_data %>%  
+    filter(Variable == "Shannon div. of sources", 
+           Category %in% c("h", "p", "s")) %>%  
+    group_by(Category) %>%  
+    summarise(y = median(Value)) %>%
+    mutate(
+      label = as.character(Category)
+    ),
+                  aes(c(0.75, 1, 1.25), y, label = label),
+    colour = color, 
+                  bg.colour = "white", 
+                  bg.r = .2, 
+                  force = 0) +
+  scale_y_reverse(limits = c(6, 0)) +
+  scale_x_continuous(labels = NULL) +
+  theme_minimal(base_size = base_size)  +
+  theme(panel.grid  = element_blank()) +
+  ylab("Shannon Index") +
+  xlab("Diversity of sources")
+```
+
+```{r plot fig. 1 (BM)}
+#| label: fig-compare-other-fields
+#| fig-cap: Replication of the figure 1 of Marwick (2025). Distributions of article characteristics hypothesised to reflect the level of consensus. The boxplot shows the distribution of values of archaeology articles. The thick black line in the middle of the boxplot is the median value, the box represents the inter-quartile range (the range between the 25th and 75th percentiles, where 50% of the data are located), and individual points represent outliers. The smaller coloured boxplots indicate the values computed by Fanelli and Glanzel (2013), where p = physics, s = social sciences, h = humanities. ln denotes the natural logarithm, or logarithm to the base e. 
+#| fig-height: 4
+
+library(cowplot)
+
+plot_grid(boxlplot_n_authors, 
+          boxlplot_rel_title_length,
+          boxlplot_n_pages,
+          boxlplot_price_index, 
+          boxlplot_shannon_index_AQ,
+          nrow = 2)
+```
+
+@fig-compare-other-fields presents boxplots for archaeological journals (in black) that are quite similar to those in @marwick_archaeology_2025. In my study, the number of authors and article length are closer to social sciences than to physics. The relative title length is very similar to the WoS data, although it is again slightly closer to social sciences. The recency of references is more akin to humanities. The diversity of sources, calculated correctly with the OpenAlex data, is lower in archaeological journals than in the physics data from @fanelli_bibliometric_2013. Low values of Shannon's index indicate that articles from archaeological journals cite a limited number of different sources, which is typically interpreted as a characteristic of hard sciences [@fanelli_bibliometric_2013].
+
+In the WoS dataset, the proportion of articles published after 2012 is 70 %, for only 13 years out of the 50, or 26 % of the studied time range. On the other side, the post-2012 articles represent only 41 % of the OpenAlex dataset. Data for archaeology in figure 1 of @marwick_archaeology_2025 is thus strongly skewed towards recent publication habits rather than truly representing trends from 1975 to 2025. In contrast, the OpenAlex data presented in @fig-compare-other-fields is more representative of the entire time range.
+
+Given that the OpenAlex dataset is larger than the WoS dataset, I replicated figure 1 from @marwick_archaeology_2025 but selected only data from 2012 (@fig-compare-other-fields_2012), as in @fanelli_bibliometric_2013. @marwick_archaeology_2025 did not perform the analysis due to a small sample size (n = 303), but the OpenAlex dataset contains 1241 articles from 2012. I believe this is interesting because the calculated metrics do vary over time [fig. 2 @marwick_archaeology_2025]. Thus, comparing the 1975-2025 dataset of WoS with the 2012 data used by @fanelli_bibliometric_2013 could misrepresent the archaeological publication tendencies and, consequently, the interpretation of archaeology as a *hardn/soft* science.
+
+@fig-compare-other-fields_2012 shows very minor differences compared to @fig-compare-other-fields. The boxplots for all five calculated metrics only shrink slightly, but the relative position to other fields remain the same with same mean, indicating that data from 2012 may be representative of the entire 1975-2025 dataset.
+
+```{r prepare boxplots_2012 (AQ)}
+library(ggrepel)
+
+source("code/001-redraw-Fanelli-and-Glanzel-Fig-2.R")
+
+base_size <- 6
+color <- c('#d95f02', '#7570b3',  '#1b9e77')
+alpha <- 0.2
+linewidth <- 0.1
+
+# Number of authors ------------------
+boxlplot_n_authors_2012 <- 
+  ggplot() +
+  # boxplot of data from this study
+  geom_boxplot(data = items_df %>% 
+  filter(year == 2012),
+  aes(1, log(authors_n)),
+               size = 1)  +
+  # boxplot of data from Fanelli & Glänzel Fig 2
+  geom_boxplot(data = sim_data %>% 
+  filter(Variable == "N. of authors (ln)",
+         Category %in% c("h", "p", "s")),
+  aes(1, Value, 
+      group = Category),
+  size = 1,
+  fill = color,
+  colour = color, 
+  alpha = alpha,
+  linewidth = linewidth)  +
+  # annotations from Fanelli & Glänzel Fig 2
+  geom_text_repel(data = sim_data %>%  
+    filter(Variable == "N. of authors (ln)",
+           Category %in% c("h", "p", "s")) %>%  
+    group_by(Category) %>%  
+    summarise(y = median(Value)) %>%
+    mutate(
+      label = as.character(Category)
+    ),
+                  aes(c(0.75, 1, 1.25), y, label = label),
+                  color = color,
+                  bg.colour = "white", 
+                  bg.r = .2, 
+                  force = 0) +
+  scale_y_continuous(limits = c(0, 5)) +
+  scale_x_continuous(labels = NULL) +
+  theme_minimal(base_size = base_size) + 
+  theme(panel.grid  = element_blank()) +
+  ylab("N. of authors (ln)") +
+  xlab("Collaborator group size") 
+
+
+# Relative title length  ----------------
+boxlplot_rel_title_length_2012 <- 
+items_df_title %>% 
+  filter(year == 2012) %>% 
+  ggplot(aes(1,
+             relative_title_length)) +
+  geom_boxplot(
+               size = 1)  +
+  # boxplot of data from Fanelli & Glänzel Fig 2
+  geom_boxplot(data = sim_data %>% 
+  filter(Variable == "Relative title length (ln)",
+         Category %in% c("h", "p", "s")),
+  aes(1, Value, 
+      group = Category),
+  size = 1,
+  fill = color,
+  colour = color, 
+  alpha = alpha,
+  linewidth = linewidth)  +
+  # annotations from Fanelli & Glänzel Fig 2
+  geom_text_repel(data = sim_data %>%  
+    filter(Variable == "Relative title length (ln)", 
+           Category %in% c("h", "p", "s")) %>%  
+    group_by(Category) %>%  
+    summarise(y = median(Value)) %>%
+    mutate(
+      label = as.character(Category)
+    ),
+                  aes(c(0.75, 1, 1.25), y, label = label),
+                  bg.colour = "white", 
+    colour = color,
+                  bg.r = .2, 
+                  force = 0) +
+  scale_y_continuous(limits = c(-4.5, 3),
+                     breaks =  seq(-5, 5, 1),
+                     labels = seq(-5, 5, 1)) +
+  scale_x_continuous(labels = NULL) +
+  theme_minimal(base_size = base_size) +
+  theme(panel.grid  = element_blank()) +
+  ylab("Ratio of title length to article length (ln)") +
+  xlab("Relative title length")
+
+# Number of pages ------------------
+boxlplot_n_pages_2012 <- 
+items_df %>% 
+  filter(year == 2012) %>%
+  ggplot(aes(1,
+             log(pages_n))) +
+  geom_boxplot(
+               size = 1)  +
+  # boxplot of data from Fanelli & Glänzel Fig 2
+  geom_boxplot(data = sim_data %>% 
+  filter(Variable == "N. of pages (ln)",
+         Category %in% c("h", "p", "s")),
+  aes(1, Value, 
+      group = Category),
+  size = 1,
+  fill = color,
+  colour = color, 
+  alpha = alpha,
+  linewidth = linewidth)  +
+  # annotations from Fanelli & Glänzel Fig 2
+  geom_text_repel(data = sim_data %>%  
+    filter(Variable == "N. of pages (ln)", 
+           Category %in% c("h", "p", "s")) %>%  
+    group_by(Category) %>%  
+    summarise(y = median(Value)) %>%
+    mutate(
+      label = as.character(Category)
+    ),
+                  aes(c(0.75, 1, 1.25), y, label = label),
+                  bg.colour = "white",
+    colour = color, 
+                  bg.r = .2, 
+                  force = 0) +
+  scale_y_reverse(limits = c(5, 0)) +
+  scale_x_continuous(labels = NULL) +
+  theme_minimal(base_size = base_size) + 
+  theme(panel.grid  = element_blank()) +
+  ylab("N. of pages (ln)") +
+  xlab("Article length")
+
+# Price's index - age of references ------------------
+boxlplot_price_index_2012 <- 
+items_df %>% 
+  filter(year == 2012) %>%
+  ggplot(aes(1,
+             prices_index)) +
+  geom_boxplot(
+               size = 1)  +
+  # boxplot of data from Fanelli & Glänzel Fig 2
+  geom_boxplot(data = sim_data %>% 
+  filter(Variable == "Price's index",
+         Category %in% c("h", "p", "s")),
+  aes(1, Value, 
+      group = Category),
+  size = 1,
+  fill = color,
+  colour = color,  
+  alpha = alpha,
+  linewidth = linewidth)  +
+  # annotations from Fanelli & Glänzel Fig 2
+  geom_text_repel(data = sim_data %>%  
+    filter(Variable == "Price's index", 
+           Category %in% c("h", "p", "s")) %>%  
+    group_by(Category) %>%  
+    summarise(y = median(Value)) %>%
+    mutate(
+      label = as.character(Category)
+    ),
+                  aes(c(0.75, 1, 1.25), y, label = label),
+                  bg.colour = "white", colour = color, 
+                  bg.r = .2, 
+                  force = 0) +
+  scale_y_continuous(limits = c(0, 1)) +
+  scale_x_continuous(labels = NULL) +
+  theme_minimal(base_size = base_size) +
+  theme(panel.grid  = element_blank()) +
+  ylab("Prop. refs in last 5 years") +
+  xlab("Recency of references")
+
+# Shannon index - diversity of sources ------------------
+boxlplot_shannon_index_2012_AQ <- 
+shannon_per_item_AQ %>% 
+  filter(year == 2012) %>%
+  filter(shannon > 0) %>%
+  ggplot(aes(1,
+             shannon)) +
+  geom_boxplot(
+               size = 1)  +
+   # boxplot of data from Fanelli & Glänzel Fig 2
+  geom_boxplot(data = sim_data %>% 
+  filter(Variable == "Shannon div. of sources",
+         Category %in% c("h", "p", "s")),
+  aes(1, Value, 
+      group = Category),
+  size = 1,
+  fill = color,
+  colour = color,  
+  alpha = alpha,
+  linewidth = linewidth)  +
+  # annotations from Fanelli & Glänzel Fig 2
+  geom_text_repel(data = sim_data %>%  
+    filter(Variable == "Shannon div. of sources", 
+           Category %in% c("h", "p", "s")) %>%  
+    group_by(Category) %>%  
+    summarise(y = median(Value)) %>%
+    mutate(
+      label = as.character(Category)
+    ),
+                  aes(c(0.75, 1, 1.25), y, label = label),
+    colour = color, 
+                  bg.colour = "white", 
+                  bg.r = .2, 
+                  force = 0) +
+  scale_y_reverse(limits = c(6, 0)) +
+  scale_x_continuous(labels = NULL) +
+  theme_minimal(base_size = base_size)  +
+  theme(panel.grid  = element_blank()) +
+  ylab("Shannon Index") +
+  xlab("Diversity of sources")
+```
+
+```{r plot boxplots_2012}
+#| label: fig-compare-other-fields_2012
+#| fig-cap: Replication of the figure 1 of Marwick (2025) for 2012 articles only as in Fanelli and Glanzel (2013). Distributions of article characteristics hypothesised to reflect the level of consensus. The thick black line in the middle of the boxplot is the median value, the box represents the inter-quartile range (the range between the 25th and 75th percentiles, where 50% of the data are located), and individual points represent outliers. The smaller coloured boxplots indicate the values computed by Fanelli and Glanzel (2013), where p = physics, s = social sciences, h = humanities. ln denotes the natural logarithm, or logarithm to the base e. 
+#| fig-height: 4
+
+library(cowplot)
+
+plot_grid(boxlplot_n_authors_2012, 
+          boxlplot_rel_title_length_2012,
+          boxlplot_n_pages_2012,
+          boxlplot_price_index_2012, 
+          boxlplot_shannon_index_2012_AQ,
+          nrow = 2)
+```
+
+Given that the extraction of all this data also allows for ranking the top-cited references and sources, I present in @tbl-top20articles and @tbl-top20journals the 20 papers and sources, respectively, that have the most citations in the dataset. The first list indicates that the most cited references are primarily methodological (radiocarbon and isotopes) or theoretical articles, and sourcebooks, rather than case studies, which is an expected result. The latter list shows that the most cited journal, *Journal of Archaeological Science*, is more than twice as cited as the second one, *American Antiquity*. This highligths the importance of this journal in the community and may partly explain partly the low values of Shannon's index. While the top 3 journals are, in my opinion, not very surprising, I find it more surprising to see *Archaeometry* in the fourth position. It is also interesting to note the presence of highly reputable generalist journals in position 5 and 6 for *Nature* and *Science* respectively, and even of the *PNAS* in position 17.
+
+This table of the most cited journals differs significantly from the same table calculated (but not shown) in @marwick_archaeology_2025. This table ranks *Journal of Archaeological Science* first, followed by *American Antiquity* with half the citations, then *Antiquity*. After that, the order changes considerably compared to the OpenAlex data. For instance, *Nature* is here in the 15th position, and the *PNAS* in 9th. *Quaternary International* is here in 5th position, whereas it is 12th in the OpenAlex table, etc. This indicates that the differences between both datasets regarding references are relatively significant, which explains the variations in the Diversity of source results. This discrepancy could be due to the recency of the WoS dataset (70\% of the articles are post-2012), as seen for example with the presence of *PLoS ONE* (created in 2006) and *Journal of Archaeological Science: Reports* (created in 2015) in the top 20 sources, despite both journals being relatively new outlets.
+
+```{r table top 20 refs 1_4}
+all_cited_items <- 
+  ref_list7 %>% 
+  select(x) %>% 
+  group_by(x) %>% 
+  tally() %>% 
+  arrange(desc(n)) 
+
+top25_cited_items = all_cited_items %>% head(25)
+colnames(top25_cited_items) = c("Article","N.citations")
+```
+
+```{r table top 20 refs 2_4}
+#| eval: false
+
+top25_refs_list <- list()
+
+# Loop for getting the list of all refs for each paper and keeping only its publication years 
+# (very very long)
+for (i in 1:nrow(top25_cited_items)) {
+title_refs_search <- tryCatch({
+  oa_fetch(
+  entity = "works",
+  identifier = top25_cited_items$Article[[i]],
+  count_only = FALSE,
+  output = "dataframe",
+  verbose = TRUE,
+  mailto = "alain.queffelec@u-bordeaux.fr"
+) 
+}, error = function(e) {
+    message(paste("Error fetching data for row", i, ": ", e$message))
+    NULL
+  })
+
+if (!is.null(title_refs_search)) {
+    title_refs <- title_refs_search$title
+    top25_refs_list[[i]] <- title_refs
+    }
+}
+
+# Save the list on the disk
+saveRDS(top25_refs_list, "data/top25_refs_list.rds")
+```
+
+```{r table top 20 refs 3_4}
+# Read the list on the disk
+top25_refs_list = readRDS("data/top25_refs_list.rds")
+
+top25_cited_items$Article = unlist(top25_refs_list)
+top25_cited_items$Article[10] = top25_cited_items$Article[2] # transform manually a title with chinese characters in the same title with latin characters
+top25_cited_items$Article[21] = top25_cited_items$Article[16] # transform manually a title with authors added in the same title without the authors
+
+top20_cited_items_fused <- top25_cited_items %>%
+  group_by(Article) %>%
+  summarise(N.citations = sum(N.citations), .groups = 'drop')
+
+top20_cited_items_fused = top20_cited_items_fused  %>% arrange(desc(top20_cited_items_fused$N.citations)) %>% head(20) %>%
+  mutate(rank = seq(1:20))  %>%
+  relocate(rank, .before = Article)
+
+top20_cited_items_4cols = cbind(top20_cited_items_fused[1:10,],top20_cited_items_fused[11:20,])
+
+```
+
+```{r table top 20 refs 4_4}
+#| label: tbl-top20articles
+
+# Display the table
+knitr::kable(top20_cited_items_4cols, caption = "Top 20 references cited in the OpenAlex dataset")
+```
+
+```{r table top 20 journals 1_2}
+
+# get a list of the top journals
+top_journals <- 
+  ref_list7 %>% 
+  select(journal_name) %>% 
+  group_by(journal_name) %>% 
+  tally() %>% 
+  filter(n > 50) %>% 
+  arrange(desc(n))
+
+top20_cited_journals = top_journals %>% head(20)
+colnames(top20_cited_journals) = c("Journal","N.citations") 
+top20_cited_journals = top20_cited_journals %>%
+  mutate(rank = seq(1:20))  %>%
+  relocate(rank, .before = Journal)
+
+top20_cited_journals_4cols = cbind(top20_cited_journals[1:10,],top20_cited_journals[11:20,])
+
+```
+
+```{r table top 20 journals 2_2}
+#| label: tbl-top20journals
+
+# Display the table
+knitr::kable(top20_cited_journals_4cols, caption = "Top 20 journals cited in the OpenAlex dataset")
+```
+
+```{r table top 20 journals marwick 1_2}
+
+# get top 20 journals from Marwick
+top_cited_journals_marwick = readRDS("data/top_cited_journals_Marwick.rds")
+
+top20_cited_journals_marwick = top_cited_journals_marwick %>% head(20)
+colnames(top20_cited_journals_marwick) = c("Journal","N.citations") 
+top20_cited_journals_marwick = top20_cited_journals_marwick %>%
+  mutate(rank = seq(1:20))  %>%
+  relocate(rank, .before = Journal)
+
+top20_cited_journals_marwick_4cols = cbind(top20_cited_journals_marwick[1:10,],top20_cited_journals_marwick[11:20,])
+```
+
+```{r table top 20 journals Marwick 2_2}
+#| label: tbl-top20journals_marwick
+
+# Display the table
+knitr::kable(top20_cited_journals_marwick_4cols, caption = "Top 20 journals cited in the Web of Science dataset")
+```
+
+## How has the hardness of archaeology varied over time?
+
+Regarding the evolution of hardness over time, the plots created with the OpenAlex data are similar to those created with the WoS data [Fig. 2 of @marwick_archaeology_2025]. The only difference is the evolution of the relative length, which I found so close to 0 that I decided not to put in green but to present it in grey as a variable which does not evolve over time in OpenAlex data.
+
+```{r calculate over_time}
+#| eval: false
+items_df_title <- items_df_title %>% select(-refs)
+
+over_time <-  
+  items_df %>%  
+  left_join(items_df_title) %>%  
+  left_join(shannon_per_item_AQ) %>%  
+      filter(relative_title_length != -Inf, 
+            relative_title_length !=  Inf,
+            shannon != 0,
+            pages_n < 200) %>% 
+  mutate(journal_wrp = str_wrap(journal, 30)) %>%  
+  select(journal,
+         year,
+         authors_n,
+         pages_n, 
+         prices_index,  
+         shannon, 
+         relative_title_length)
+
+over_time_long <-  
+  over_time %>%  
+  ungroup() %>%  
+  select(-journal) %>%  
+  gather(variable,  
+         value, 
+         -year) %>%  
+  filter(value != -Inf, 
+         value !=  Inf) %>%  
+  mutate(variable = case_when(  
+    variable == "pages_n"   ~ "N. of pages", 
+    variable == "prices_index"  ~ "Recency of references", 
+    variable == "shannon"  ~ "Diversity of sources", 
+    variable == "relative_title_length"  ~ "Relative title length (ln)",
+    variable == "authors_n" ~ "N. of authors"
+  )) %>%  
+  filter(!is.na(variable)) %>%  
+  filter(!is.nan(value)) %>%  
+  filter(!is.na(value)) %>%  
+  filter(value != "NaN")
+
+# compute beta estimates so we can colour lines to indicate more or less hard
+over_time_long_models <- 
+  over_time_long %>%  
+  group_nest(variable) %>%  
+  mutate(model = map(data, ~tidy(lm(value ~ year, data = .)))) %>%  
+  unnest(model) %>%  
+  filter(term == 'year') %>%  
+  mutate(becoming_more_scientific = case_when(
+    variable == "N. of authors" & estimate > 0 ~ "TRUE", 
+    variable == "N. of pages"           & estimate < 0 ~ "TRUE", 
+    variable == "N. of refs (sqrt)"          & estimate < 0 ~ "TRUE", 
+    variable == "Recency of references"      & estimate > 0 ~ "TRUE", 
+    variable == "Relative title length (ln)" ~ "NOT CHANGING",  
+    variable == "Diversity of sources"    & estimate < 0 ~ "TRUE",
+    TRUE ~ "FALSE"
+  )) 
+
+# join with data
+over_time_long_colour <- 
+  over_time_long %>% 
+  left_join(over_time_long_models)
+```
+
+```{r fig2 of Marwick, code found in v1.1 on Zenodo (modAQ)}
+#| eval: false
+# Chunk of code absent from v1.2 and v.1.3 where he calls directly the .png
+# I may have the same problem as he had : when directly in Rstudio, no problem, but impossible to render the quarto document with the modelling overtime. So I do the same as he does : I save my own .png...
+
+library(ggpmisc)
+library(mgcv)
+formula <-  y ~ x
+
+over_time_long_colour_gams <- 
+over_time_long_colour %>% 
+  nest(.by = variable) %>% 
+  mutate(mod_gam = lapply(data, 
+                          function(df) gam(year ~ s(value, bs = "cr"), 
+                                           data = df)))
+
+over_time_long_colour_gams_summary <- 
+over_time_long_colour %>% 
+  nest(.by = variable) %>% 
+  mutate(fit = map(data, ~mgcv::gam(year ~ s(value, bs = "cs"), data = .)),
+         results = map(fit, glance),
+         R.square = map_dbl(fit, ~ summary(.)$r.sq)) %>%
+  unnest(results) %>%
+  select(-data, -fit) %>% 
+  select(variable, adj.r.squared)
+
+over_time_long_colour_gams_summary_df <- 
+over_time_long_colour %>% 
+  left_join(over_time_long_colour_gams_summary)
+
+plot_overtime <- ggplot() + 
+  geom_point(data = over_time_long_colour_gams_summary_df, 
+       aes(year,  
+           value, 
+           colour = becoming_more_scientific),
+       alpha = 0.5) + 
+  geom_smooth(data = over_time_long_colour_gams_summary_df,
+              aes(year, value),
+              method="gam", 
+              formula = y ~ s(x, bs = "cs"),
+              se = FALSE,  
+              linewidth = 2, 
+              colour = "#7570b3") +
+  facet_wrap( ~ variable,
+              scales = "free_y") + 
+  theme_bw(base_size = base_size) +
+  theme(legend.position = c(0.96, 0.02),
+  legend.justification = c(1, 0),
+  legend.key.size = unit(1, "cm"),       
+  legend.text = element_text(size = 10), 
+  legend.title = element_text(size = 12),
+  legend.background = element_rect(fill = "white", color = "black", size = 0.5),
+  legend.spacing = unit(0.5, "cm")) +
+  scale_color_manual(values = c("TRUE" = "#1b9e77",
+                              "FALSE" = "#d95f02",
+                              "NOT CHANGING" = "lightgrey")) +
+  ylab("") +
+  geom_text(data = over_time_long_colour_gams_summary_df %>% 
+              group_by(variable) %>% 
+              summarise(max_value = max(value),
+                        adj.r.squared = unique(adj.r.squared)),
+           aes(
+           x = 1980, 
+           y = max_value, 
+           label = paste("Pseudo R² = ", 
+                         signif(adj.r.squared, 
+                                digits = 3))),
+           hjust = 0, 
+           vjust = 1.5,
+           size = 2)
+
+ggsave(plot_overtime,height = 6.95, width = 9.31,
+       filename = ("figures/plot_overtime.png"))
+```
+
+```{r fig_over_time}
+#| label: fig-change-over-time
+#| fig-cap: Distribution of article characteristics for archaeology articles over time. Data points represent individual articles. The colour of the points indicates if the overall trend is toward softer (orange), harder (green) or do not really change (grey).
+#| fig-height: 6
+
+knitr::include_graphics("figures/plot_overtime.png")
+ 
+```
+
+## How do archaeology journals vary in hardness?
+
+```{r calculate PCA}
+
+journal_title_size <- 2
+
+# get rank order of journals by these bibliometic variables
+
+journal_metrics_for_plotting <- 
+items_df %>% 
+  left_join(items_df_title) %>% 
+  left_join(shannon_per_item_AQ) %>% 
+  ungroup() %>% 
+  select(journal,
+         authors_n,  # log
+         pages_n,    # log
+         relative_title_length,
+         prices_index,
+         shannon
+         ) %>% 
+    filter(relative_title_length != -Inf, 
+           relative_title_length !=  Inf,
+           prices_index != "NaN" 
+           ) %>% 
+  mutate(
+    log_authors = log(authors_n),
+    log_pages = log(pages_n)
+  ) 
+
+journal_metrics_for_plotting_summary <- 
+  journal_metrics_for_plotting %>% 
+  mutate(journal = str_wrap(journal, 20)) %>% 
+  group_by(journal) %>% 
+  summarise(mean_log_authors = mean(log_authors),
+            mean_log_pages =   mean(log_pages),
+            mean_relative_title_length = mean(relative_title_length),
+            mean_prices_index = mean(prices_index),
+            mean_shannon =      mean(shannon)) 
+
+# PCA of journal means
+journal_metrics_for_plotting_summary_pca <- 
+journal_metrics_for_plotting_summary %>% 
+  mutate(across(where(is.numeric), ~ ifelse(is.na(.), mean(., na.rm = TRUE), .))) %>%
+  column_to_rownames("journal") %>% 
+  prcomp(scale = TRUE)
+
+# Tidy the PCA results
+pca_means_tidy <- journal_metrics_for_plotting_summary_pca %>% tidy(matrix = "pcs")
+# first two PCs explain how much?
+# Get the summary of the PCA
+pca_summary <- summary(journal_metrics_for_plotting_summary_pca)
+# Extract the proportion of variance explained by PC1 and PC2
+variance_explained <- round(pca_summary$importance[2, 1:2] * 100, 0)
+
+# Get the PCA scores
+pca_scores_means <- journal_metrics_for_plotting_summary_pca %>%  augment(journal_metrics_for_plotting_summary)
+
+# Get the PCA loadings
+pca_loadings_means <- 
+  journal_metrics_for_plotting_summary_pca %>% 
+  tidy(matrix = "rotation") %>% 
+    pivot_wider(names_from = "PC", 
+              values_from = "value",
+              names_prefix = "PC") %>% 
+  mutate(column = case_when(
+    column == "mean_log_authors" ~ "Number of\nauthors",
+    column == "mean_log_pages" ~ "Number of\npages",
+    column == "mean_relative_title_length" ~ "Relative\ntitle\nlength",
+    column == "mean_prices_index" ~ "Recency of\nreferences",
+    column == "mean_shannon" ~ "Diversity of\nsources",
+  ))
+
+# Plot the PCA results
+plot_pca_means <- 
+ggplot() + 
+  labs(x = paste0("PC1 (", variance_explained[1], "%)"),
+       y = paste0("PC2 (", variance_explained[2], "%)")) +
+  geom_point(data = pca_scores_means,
+               aes(.fittedPC1,
+                   .fittedPC2),
+             size = 1) +
+  geom_text_repel(data = pca_scores_means %>% 
+                    mutate(label = str_replace(journal, 
+                                               "JOURNAL", 
+                                               "J.")) %>% 
+                    mutate(label = str_remove(label, 
+                                               "-AN\nINTERNATIONAL\nJ.")),
+            aes(.fittedPC1,
+                .fittedPC2,
+                label = label),
+            lineheight = 0.8,
+            segment.color = NA,
+            force_pull = 10,
+            size = 2.5,
+            bg.color = "white",  # Color of the halo
+            bg.r = 0.2) +
+     geom_segment(data = pca_loadings_means, 
+               aes(x = 0, 
+                   y = 0, 
+                   xend = PC1, 
+                   yend = PC2),
+               arrow = arrow(length = unit(0.2, "cm")), 
+               color = "grey70") +
+  geom_text_repel(data = pca_loadings_means,
+            aes(PC1,
+                PC2,
+                label = column),
+            size = 2,
+            lineheight = 0.8,
+            force = 10,
+            force_pull = 0,
+            segment.color = NA,
+            color = "grey40",
+           bg.color = "white",  # Color of the halo
+          bg.r = 0.2) +
+  theme_minimal(base_size = base_size) +
+  coord_fixed(xlim = c(-6, 2.5),
+              ylim = c(-3, 2))
+
+# tricky to get the label spacing right, let's save an SVG, edit
+# by hand, then export to PNG and read that file later.
+
+ggsave(plot_pca_means,
+       filename = ("figures/plot_pca_means.svg"))
+
+```
+
+```{r fig-pca insert .png (BM)}
+#| label: fig-pca
+#| fig-cap: "Biplot of the first and second principal components of a PCA computed on the means of the five bibliometric variables for each journal in the sample.  The arrows represent the correlation between each original variable and the principal components. The direction and length of the arrows indicate how strongly each variable contributes to each component. "
+#| fig-height: 4
+
+knitr::include_graphics("figures/plot_pca_means.png")
+```
+
+@fig-pca, equivalent to figure 4 of @marwick_archaeology_2025 (though the journals are not all the same, see @sec-compa_journals_lists), represents the characteristics of the journals in the top 25 by 2-years-mean-citedness of OpenAlex. The review journal *Journal of Archaeological Research* stands out significantly from the other journals, featuring a higher diversity of sources and longer papers. In the same direction on PC1 but in the opposite direction on PC2, *Journal of Archaeological Methods and Theory*, *Journal of World Prehistory*, *Journal of Social Archaeology*, and *Journal of Material Culture* are characterized by long articles with fewer authors, and references which are less diverse and less recent. Another part of the PCA is represented by harder science journals, with recent references, more authors and shorter papers. This group includes *Advances in Archaeological Practice*, *Archaeological Dialogues*, *Australian Archaeology*, *Archaeological Prospections*, and *Antiquity*. Large teams of authors, publishing rather short articles, and citing less diverse sources are typically what is published in *Journal of Archaeological Science: Reports*, *Archaeological and Anthropological Science*, *Archaeological Research in Asia*.
+
+```{r short journal names}
+long_names = levels(factor(items_df$journal))
+short_names = c("Adv. in Arch. Practice","Antiquity","Arch. & Anthro. Sci.","Arch. Dialogues","Arch. Prosp.","Arch. Res. Asia","Archaeometry","Australian Arch.","Cambr. Arch. J.","Geoarchaeology","J. Anthro. Arch.","J. Arch. M. & T.","J. Arch. Res.","J. Arch. Sci.",
+"J. Arch. Sci. Rep.","J. Cult. Heritage","J. Field Arch.","J. Material Cult.","J. Social Arch.","J. World Prehist.","Levant","Lithic Techno.","Palest. Explo. Quart.","Studies in Cons.","World Arch.")
+replacement_vector <- setNames(short_names, long_names)
+journal_short <- str_replace_all(levels(factor(items_df$journal)), replacement_vector)
+```
+
+```{r calculate rankings journals}
+# looking into rankings of the journals
+
+journal_title_size <- 7
+
+journal_summary_metrics_ranks <- 
+journal_metrics_for_plotting_summary %>% 
+  mutate(journal = journal_short) %>%
+  mutate(across(starts_with("mean"), 
+                ~ rank(-.), 
+                .names = "rank_{.col}")) %>% 
+  select(journal, starts_with("rank")) %>% 
+  # reorder by hardness
+  mutate(rank_mean_log_pages = 21 - rank_mean_log_pages,
+         rank_mean_shannon =   21 - rank_mean_shannon)
+
+library(irr)
+journal_summary_metrics_ranks_test <- 
+journal_summary_metrics_ranks %>% 
+  select(-journal) %>% 
+  kendall(correct = TRUE)
+
+# Convert to scientific text
+pretty_print_sci <- function(num){
+  scientific_text <- paste0(gsub("e", " x 10^",  # Replace 'e' with ' x 10^'
+                          sprintf("%.2e", num)), "^") # round to 2 sf
+  return(scientific_text)
+  }
+
+borda_count_tbl <- function(votes_tbl) {
+  # Number of voters
+  num_voters <- ncol(votes_tbl) - 1
+  
+  # Calculate scores for each option
+  scores <- votes_tbl %>%
+    rowwise() %>%
+    mutate(Score = sum(num_voters - c_across(starts_with("rank_")))) %>%
+    ungroup() %>%
+    select(1, Score)
+  
+  # Return scores
+  return(scores)
+}
+
+# Calculate Borda Count scores
+borda_scores <- 
+journal_summary_metrics_ranks %>% 
+  borda_count_tbl() %>% 
+  rename("Journal" = "journal") %>% 
+  arrange(desc(Score))
+
+plot_borda_scores <- 
+  borda_scores %>% 
+ggplot() +
+  aes(reorder(Journal, Score),
+      Score) +
+  geom_col() +
+  coord_flip() +
+  ylab("Borda Count scores") + 
+  xlab("") +
+  theme_minimal(base_size = base_size) +
+  theme(axis.text.y = element_text(size = journal_title_size)) 
+
+```
+
+```{r prepare rankings plots}
+library(ggridges)
+
+journal_title_size <- 7
+
+journal_metrics_for_plotting <- journal_metrics_for_plotting %>% 
+  mutate(journal = str_replace_all(journal, replacement_vector))
+
+plot_journals_authors <- 
+journal_metrics_for_plotting %>% 
+  ggplot(aes(y = reorder(journal, 
+                         log_authors,
+                     FUN = mean),
+             x = log_authors,
+             fill =   after_stat(x),
+             height = after_stat(density))) +
+  geom_density_ridges_gradient(stat = "density",
+                               colour = "white") +
+  scale_fill_viridis_c() +
+  guides(fill = 'none') +
+  theme_minimal(base_size = journal_title_size) +
+  theme(axis.text.y = element_text(size = journal_title_size)) +
+  ylab("") + 
+  xlab("Number of authors (ln)")
+
+plot_journals_article_length <- 
+journal_metrics_for_plotting %>% 
+  ggplot(aes(y = reorder(journal,
+                     -log_pages,
+                     FUN = mean), 
+             x = log_pages,
+             fill =   after_stat(x),
+             height = after_stat(density))) +
+  geom_density_ridges_gradient(stat = "density",
+                               colour = "white") +
+  scale_fill_viridis_c() +
+  guides(fill = 'none') +
+  theme_minimal(base_size = base_size) +
+  theme(axis.text.y = element_text(size = journal_title_size)) +
+  xlab("Number of pages (ln)") +
+  ylab("")
+
+plot_journals_title_length <- 
+journal_metrics_for_plotting %>% 
+  ggplot(aes(y = reorder(journal,
+                         relative_title_length,
+                         FUN = mean), 
+             x = relative_title_length,
+             fill =   after_stat(x),
+             height = after_stat(density))) +
+  geom_density_ridges_gradient(stat = "density",
+                               colour = "white") +
+  scale_fill_viridis_c() +
+  guides(fill = 'none') +
+  theme_minimal(base_size = base_size) +
+  theme(axis.text.y = element_text(size = journal_title_size)) +
+  ylab("") +
+  xlab("Relative title length (ln)")
+
+plot_journals_ref_recency <- 
+journal_metrics_for_plotting %>% 
+  group_by(journal) %>% 
+  ggplot(aes(y = reorder(journal,
+                     prices_index,
+                     FUN = mean), 
+             x = prices_index,            
+             fill =   after_stat(x),
+             height = after_stat(density))) +
+  geom_density_ridges_gradient(stat = "density",
+                               colour = "white") +
+  scale_fill_viridis_c() +
+  guides(fill = 'none') +
+  theme_minimal(base_size = base_size) +
+  theme(axis.text.y = element_text(size = journal_title_size)) +
+  ylab("") +
+  xlab("Recency of references")
+
+plot_journals_ref_diversity <- 
+journal_metrics_for_plotting %>%  
+  group_by(journal) %>% 
+  ggplot(aes(y = reorder(journal,
+                     -shannon,
+                     FUN = mean), 
+             x = shannon,
+             fill =   after_stat(x),
+             height = after_stat(density))) +
+  geom_density_ridges_gradient(stat = "density",
+                               colour = "white") +
+  scale_fill_viridis_c() +
+  guides(fill = 'none') +
+  theme_minimal(base_size = base_size) +
+  theme(axis.text.y = element_text(size = journal_title_size)) +
+  ylab("") +
+  xlab("Diversity of sources")
+```
+
+```{r fig-variation-by-journal}
+#| label: fig-variation-by-journal
+#| fig-cap: "Panels A-E: Variation in bibliometric indicators of hardness for 25 archaeological journals. The journals are ordered for each indicator so that within each plot, the harder journals are at the top of the plot and the softer journals are at the base. Panel F shows a bar plot that is the single consensus ranking computed from all five variables, using the Borda Count ranking algorithm."
+#| fig-height: 8
+#| fig-width: 10
+
+library(cowplot)
+
+plot_variation = plot_grid(plot_journals_authors, 
+           plot_journals_article_length,
+           plot_journals_title_length,
+           plot_journals_ref_recency, 
+           plot_journals_ref_diversity,
+           plot_borda_scores,
+           nrow = 2,
+           labels = LETTERS[1:6],
+           label_size = 6)
+
+plot_variation
+
+
+ggsave(plot_variation,
+       filename = ("figures/plot_variation.svg"))
+```
+
+@fig-variation-by-journal also presents interesting results:
+
+- @fig-variation-by-journal A shows a pretty different order for the journals that are both in the top 25 of OpenAlex and in the top 20 of WoS.
+
+- @fig-variation-by-journal B-E illustrate that the data in OpenAlex have a much wider distribution than the data in WoS presented by @marwick_archaeology_2025.
+
+- @fig-variation-by-journal B-D show rankings in the length of articles, the relative length of articles and in the recency of references quite similar to the ones calculated by @marwick_archaeology_2025.
+
+- @fig-variation-by-journal E shows rankings that are very similar to those presented in @marwick_archaeology_2025 in the lower part of the plot, while the upper part of the plot is populated with journals which are not in the top 20 journals from the WoS database. 
+
+- @fig-variation-by-journal F also generally matches the results from @marwick_archaeology_2025.
+
+- @fig-variation-by-journal F shows that the two journals of cultural heritage and conservation studies are distinct from the other journals. It is very interesting to see that *Studies in Conservations* behaves similarly in this plot as *Journal of Cultural Heritage*, as it strengthens the interpretation of @marwick_archaeology_2025. These journals are the closest to hard science because they "*publishes materials science and computational analyses related to conservation and preservation of historic objects in museums and other collections*" and therefore behave more as chemistry journals than archaeological journals.
+
+# Discussion
+
+This attempt at reproducing and replicating @marwick_archaeology_2025 has been successful.
+
+First, the well-organized and shared data and scripts allowed me to easily reproduce the published paper with all its figures, confirming full computational reproducibility. Nevertheless, a few errors were identified in the code, which have been shared with the author through GitHub. The main issues exposed relate to the selection of the top 20 journals and to the calculation of the Shannon's index. The article states that the selection of journals is based on the H-index, whereas it is actually based on the 2022 Impact Factor in the code. This list is also missing two journals due to a problem of data sorting prior to subsetting. The second issue lies in the calculation of Shannon's index, which significantly modify the results for this metric.
+
+Second, the replication of the first part of @marwick_archaeology_2025 about the hard/soft position of archaeology within science has been conducted using the OpenAlex dataset instead of the Web of Science dataset. This open dataset, which is much larger than the WoS dataset but still less curated in some variables, allowed for the confirmation of most observations made in the replicated study. It confirms that the open and free dataset is usable for scientometrics analysis. It also confirms that archaeology can be positioned in terms of hard/soft science as intermediate between physics and humanities and often close to social sciences. The only strong difference lies in the diversity of sources as estimated by the Shannon's index. As previously explained, the calculation Shannon's index for the diversity of sources is incorrect in @marwick_archaeology_2025. When corrected in his code, evan while still using the WoS dataset, the result is quite different from the result presented in the article: the corrected diversity of sources is even more in the direction of soft science, higher than social sciences and humanities. In the OpenAlex dataset, with the correct calculation, Shannon's index values are lower for archaeology than for the other three disciplines (@fig-compare-other-fields), and this is also the case when only articles from 2012 are used (@fig-compare-other-fields_2012). Shannon's index calculated from OpenAlex's data suggests a very low diversity, lower than that of physics, and therefore would indicate a hard science behavior of archaeologists when citing scientific articles. This could be interpreted as evidence that, in archaeology, "*scholars agree on the relative importance of scientific problems, their efforts [...] concentrate in specific fields and their findings [are] of more general interest, leading to a greater concentration of the relevant literature in few, high-ranking outlets*" [@fanelli_bibliometric_2013]. Observing the strong dominance of *Journal of Archaeological Science* and the presence of *Nature*, *Science*, and *PNAS* in the top 20 cited journals in archaeology (@tbl-top20journals) could indeed indicate that archaeology relies on a relatively small number of journals, and especially high-ranking ones. Despite this observation, I wonder if this is due to the agreement of scholars on the relative importance of scientific problems as mentioned by @fanelli_bibliometric_2013, or if it is due to the ability of archaeological results to be published relatively more easily than other disciplines in these high-ranking journals, particularly in the archaeology of ancient periods. It may also indicate that the number of archaeological journals is smaller than in other disciplines, though I am unsure if this is true, and I am not aware of any studies on this topic.
+
+The comparison of different journals for each metric measured in this study is also generally similar to the results published in @marwick_archaeology_2025, altough it is sometimes difficult to compare because the lists of journals in both manuscripts are different. Some journals are positioned in the PCA in the same way with both datasets, particularly on the more extreme soft or hard sides (@fig-pca). Changing the calculation of Shannon's index almost do not alters the PCA of @marwick_archaeology_2025. The rankings are also quite similar for the journals which are in both lists (@fig-variation-by-journal), but the OpenAlex dataset shows much more diversity for each journal across most metrics. The higher number of articles in the OpenAlex dataset offers a more nuanced view of the behavior of each journal. This may be due to the inclusion of more ancient articles compared to the WoS dataset, which comprises 70% of post-2012 articles. Alternatively, it may also result from some data being poorly documented in OpenAlex, especially for the oldest articles?
+
+# Conclusion
+
+This work confirmed the reproducibility and replicability of the first part of @marwick_archaeology_2025. The reproducibility was easy to implement, but not totally without errors. The replication of the results with the OpenAlex dataset allowed me to identify these errors by applying the code to another dataset, which compelled me to delve deeper into the code. This process underscore (if necessary) the value of reusing and learning from the code and data of a skilled colleague, a method also employed by the author of the replicated study himself to train his students [@marwick_how_2020]. The results obtained using the OpenAlex dataset, which is entirely free and open source, generally align with those published by @marwick_archaeology_2025. The primary difference lie in the references listed in the articles which can be automatically extracted. The findings indicate that the OpenAlex dataset is less influenced by recent trends in publications than the Web of Science dataset, as it maintains a more balanced number of articles over the 50-year period studied. This replication supports the idea that it is totally possible to use this extensive database for scientometrics analyses, particularly considering that this database will continue to expand and improve in the future.
+
+# Data and script availability
+
+Data and quarto document allowing to fully reproduce this manuscript are available at XXXX-ZENODO-LINK-XXXX. There is also an html version of this manuscript, more interactive, here: XXXX-GITHUB-LINK-XXXX.
+
+# Acknowledgements
+
+I would like to express my gratitude to Ben Marwick for his ongoing efforts to promote transparency and openness in archaeology. Through his influential publications and active participation in professional societies, he consistently advocates for these principles within our community. I have gained significant insights from reading his papers and examining the code he develops and generously shares to produce his research findings. Once again, replicating his work in this paper has been an enriching learning experience.
+
+Additionally, I wish to disclose that I used Large Language Models (LLMs) for assistance in modifying and creating code, as well as for refining the English language in this document.
+
+# References
+
+<!-- The following line ensures the references appear here for the MS Word or HTML output files, rather than right at the end of the document (this will not work for PDF files):  -->
+
+::: {#refs}
+:::
+
+\newpage
