@@ -384,7 +384,7 @@ saveRDS(items_df, "data/OpenAlex_Works_top25_1975_2025.rds")
 # Use the result year_refs_list.rds instead
 # Thus, I put eval: false to this chunk so that it does not run when rendering the quarto document!
 
-items_df = readRDS("OpenAlex_Works_top25_1975_2025.rds")
+items_df = readRDS("data/OpenAlex_Works_top25_1975_2025.rds")
 
 # Keeping only the OpenAlex ID of each ref in the refs variable
 items_df = items_df  %>% 
