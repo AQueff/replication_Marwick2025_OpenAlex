@@ -13,21 +13,21 @@ author:
 date: now
 date-format: long
 format:
-  html: # put or remove all # in front of html and the following line to produce or not a html file
-    embed-resources: true
-    number-sections: true
-    code-fold: true
-    number-depth: 4
-    page-layout: full
-    toc: true
-    toc-expand: true
-#  docx: # put or remove all # in front of docx and the following lines to produce or not a docx file
-#   echo: false
-#   embed-resources: true
-#   number-sections: true
-#   toc: true
-#   toc-expand: true
-#   reference-doc: "templates/template.docx" 
+#  html: # put or remove all # in front of html and the following line to produce or not a html file
+#    embed-resources: true
+#    number-sections: true
+#    code-fold: true
+#    number-depth: 4
+#    page-layout: full
+#    toc: true
+#    toc-expand: true
+  docx: # put or remove all # in front of docx and the following lines to produce or not a docx file
+   echo: false
+   embed-resources: true
+   number-sections: true
+   toc: true
+   toc-expand: true
+   reference-doc: "templates/template.docx" 
 editor_options: 
   chunk_output_type: console
 execute:
@@ -54,6 +54,7 @@ library(stringr)
 library(purrr)
 library(tidyr)
 library(broom)
+library(cowplot)
 ```
 \newpage
 
@@ -427,21 +428,29 @@ saveRDS(year_refs_list, "year_refs_list.rds")
 saveRDS(journal_refs_list, "journal_refs_list.rds")
 ```
 
+```{r exporting 30 works for 0, 1, and 2 refs to check}
+#| eval: false
+convert_list_to_string <- function(l) {
+  if (is.logical(l) && length(l) == 1 && is.na(l)) {
+    return(NA_character_)
+  }
+  paste(l, collapse = ", ")
+}
+
+# Appliquer la fonction à la colonne de liste
+items_df_nolist <- items_df
+items_df_nolist$refs <- sapply(items_df$refs, convert_list_to_string) 
+items_df_nolist_fewrefs <- items_df_nolist %>%
+  filter(refs_n %in% c(0, 1, 2)) %>%
+  group_by(refs_n) %>%
+  ungroup()
+
+# Exporter vers Excel
+library(writexl)
+write_xlsx(items_df_nolist_fewrefs, "data/sampled_data_0_1_2.xlsx")
+```
+
 ## Comparison between WoS and OpenAlex
-
-As previously demonstrated at a higher level than just archaeology, the OpenAlex dataset is significantly larger than the Wos dataset but has limitations regarding some metadata [@culbert_reference_2025;@alperin_analysis_2024]. Nevertheless, for this specific subfield, here is what I observe:
-
--   The WoS dataset of archaeological articles is much smaller than the OpenAlex dataset: 28,871 compared to 1,788,444. OpenAlex aggregates data from a much wider diversity of sources.
-
--   The Wos dataset is cleaner than the OpenAlex dataset. I had to remove duplicates, papers without authors information, page numbers, reference list etc. 
-
--   The WoS dataset is not without its issues either. Upon examining the data produced during the preparation of Marwick's manuscript, problems remain even after cleaning by his code due to discrepancies in the references' structure. For instance, in the first 4 lines, entries like “11swmuspap” or “1964uclaarchsurv” appear as journals, which, of course, won't match other mentions of these same journals due to the remaining numbers. Additionally, even in the top-cited journals used for calculating the Shannon's indices, there are problems in the WoS dataset. This list includes entries such as “\[anonymous\]thesis”, "" (empty cells), "notitlecaptured" etc.
-
-- Both datasets lack data which have tremendous importance in archaeology: books, book chapters and grey literature. I extracted only articles in this study, as Marwick did, but this does not fully represent the scientific production of the discipline.
-
-# Replicating Marwick's results with OpenAlex data
-
-The goal here is to replicate the figures from @marwick_archaeology_2025 using data from OpenAlex. This requires some effort to prepare the extensive list of papers, including the information on the references they cite. However, in the end, it works well for creating the boxplot figure.
 
 ```{r load, clean, prepare data from OpenAlex (AQ)}
 library(tidyverse)
@@ -527,6 +536,88 @@ items_df = items_df %>% filter(title_n !=0,
                                authors_n > 0)
 ```
 
+As previously demonstrated at a higher level than just archaeology, the OpenAlex dataset is significantly larger than the Wos dataset but has limitations regarding some metadata, especially the list of references cited in the articles [@culbert_reference_2025;@alperin_analysis_2024]. Nevertheless, for this specific subfield, here is what I observe:
+
+-   The WoS dataset of archaeological articles is much smaller than the OpenAlex dataset: 28,871 compared to 1,788,444. OpenAlex aggregates data from a much wider diversity of sources.
+
+-   The Wos dataset is cleaner than the OpenAlex dataset. I had to remove duplicates, papers without authors information, page numbers, reference list etc.
+
+-   The WoS dataset is not without its issues either. Upon examining the data produced during the preparation of Marwick's manuscript, problems remain even after cleaning by his code due to discrepancies in the references' structure. For instance, in the first 4 lines, entries like “11swmuspap” or “1964uclaarchsurv” appear as journals, which, of course, won't match other mentions of these same journals due to the remaining numbers. Additionally, even in the top-cited journals used for calculating the Shannon's indices, there are problems in the WoS dataset. This list includes entries such as “\[anonymous\]thesis”, "" (empty cells), "notitlecaptured" etc.
+
+- Both datasets lack data which have tremendous importance in archaeology: books, book chapters and grey literature. I extracted only articles in this study, as Marwick did, but this does not fully represent the scientific production of the discipline.
+
+- When comparing the articles' metadata which are present in both datasets, the number of article is only 4665, based on similar doi. It is clear that for most metadata the similarity between WoS and OpenAlex is very strong (@fig-comparison_wos_OA A, C, and D), the length of the title, one of the metric used later in the study, is significantly longer in WoS than it is in OpenAlex (@fig-comparison_wos_OA B), but the main issue is clearly the number of references (@fig-comparison_wos_OA E) which is the weak point of OpenAlex already mentioned in the literature [@culbert_reference_2025]. Many references with 0 reference in OpenAlex can have more than 100 references listed in WoS! This will have consequences in the further analysis, see below.
+
+```{r keeping only articles present in both datasets}
+articles_Wos = readRDS("data/wos-data-df.rds")
+articles_OpenAlex = items_df
+articles_OpenAlex$doi <- sub("https://doi.org/", "", articles_OpenAlex$doi)
+
+articles_OpenAlex_filtre <- articles_OpenAlex[articles_OpenAlex$doi %in% articles_Wos$doi, ]
+
+colnames(articles_OpenAlex_filtre) <- paste0(colnames(articles_OpenAlex_filtre), "_OA")
+colnames(articles_Wos) <- paste0(colnames(articles_Wos), "_WoS")
+
+Common_Articles_limited <- merge(articles_OpenAlex_filtre, articles_Wos, by.x = "doi_OA", by.y = "doi_WoS") %>%
+  select(-authors_OA, -title_OA, -journal_OA, -abstract_OA, -refs_OA, -authors_WoS, -title_WoS, -journal_WoS, -abstract_WoS, -refs_WoS, -refs_OA)
+
+# Correcting an single error in OpenAlex which makes an outlier preventing reading the plot (the length of the article is 326 in Taylor & Francis metadata but checking the pdf of the real article, it should be 27, as recorded in WoS)
+
+Common_Articles_limited <- Common_Articles_limited %>%
+  mutate(pages_n_OA = replace(pages_n_OA, pages_n_OA == 326, 27))
+```
+
+```{r plotting comparison Wos OpenAlex}
+
+# Create function for biplots
+create_biplot <- function(data, var1, var2) {
+  ggplot(data, aes_string(x = var1, y = var2)) +
+    geom_point(color = "steelblue", size = 3, alpha = 0.7) +
+    geom_abline(intercept = 0, slope = 1, color = "darkred", linetype = "dashed") +
+    labs(x = var1, y = var2, title = paste(var1, "vs", var2)) +
+    theme_minimal() +
+    theme(
+      plot.title = element_text(hjust = 0.5, face = "bold"),
+      axis.title = element_text(face = "bold"),
+      panel.grid.major = element_line(color = "gray90", size = 0.2),
+      panel.grid.minor = element_blank(),
+      panel.border = element_rect(color = "gray70", fill = NA, size = 0.5)
+    )
+}
+
+p_authors_n <- create_biplot(Common_Articles_limited, "authors_n_OA", "authors_n_WoS")
+p_authors_n = p_authors_n + labs(title = NULL)
+p_title_n <- create_biplot(Common_Articles_limited, "title_n_OA", "title_n_WoS") 
+p_title_n = p_title_n + labs(title = NULL)
+p_refs_n <- create_biplot(Common_Articles_limited, "refs_n_OA", "refs_n_WoS")
+p_refs_n = p_refs_n + labs(title = NULL)
+p_pages_n <- create_biplot(Common_Articles_limited, "pages_n_OA", "pages_n_WoS")
+p_pages_n = p_pages_n +  labs(title = NULL)
+p_year_n <- create_biplot(Common_Articles_limited, "year_OA", "year_WoS")
+p_year_n = p_year_n + labs(title = NULL)
+
+# Use cowplot to organize the plots
+top_row <- plot_grid(p_authors_n, p_title_n, ncol = 2, labels = c("A","B"))
+bottom_row <- plot_grid(p_pages_n, p_year_n, ncol = 2, labels = c("C","D"))
+final_grid <- plot_grid(top_row, bottom_row, ncol = 1, rel_heights = c(1, 1))
+final_grid <- plot_grid(final_grid, p_refs_n, ncol = 1, rel_heights = c(2, 1.5), labels = c("","E"))
+```
+
+```{r display graph}
+#| cache: false
+#| fig-width: 8
+#| fig-height: 10
+#| label: fig-comparison_wos_OA
+#| fig-cap: Comparison of Wos and OpenAlex data for the articles present in both datasets. A. Number of authors, B. Length of the title, C. Number of pages, D., Attributed year, and E. Number of references. For each plot, a dashed-line represent y = x.
+# Display all graphs
+print(final_grid)
+```
+
+# Replicating Marwick's results with OpenAlex data
+
+The goal here is to replicate the figures from @marwick_archaeology_2025 using data from OpenAlex. This requires some effort to prepare the extensive list of papers, including the information on the references they cite. However, in the end, it works well for creating the boxplot figure.
+
+
 ```{r basic stats (BM)}
 n_articles <- nrow(items_df)
 year_max <- max(items_df$year)
@@ -549,7 +640,13 @@ n_items_df_after_2012 <-
 prop_pub_after2012 <-  n_items_df_after_2012  / n_articles
 ```
 
-As of the writing of this document (June 2025), and after automatically cleaning the dataset extracted from OpenAlex, there are `r nrow(items_df)` unique articles from 1975 to 2025 in the top 25 journals (identified by their 2-years-mean-citedness), for which the necessary variables to replicate Marwick's results are available. Among these, 10,402 papers have zero references, likely due to missing data in OpenAlex rather than an actual absence of references. The entire code of @marwick_archaeology_2025 can then be executed with *only few* modifications.
+As of the writing of this document (June 2025), and after automatically cleaning the dataset extracted from OpenAlex, there are `r nrow(items_df)` unique articles from 1975 to 2025 in the top 25 journals (identified by their 2-years-mean-citedness), for which the necessary variables to replicate Marwick's results are available. Among these, 10,415 papers have zero references, 3,222 being from *Antiquity* and I suspect them to be mainly book reviews. 1,183 works are attributed to *Australian Archaeology*, sometimes not even a page long in which I found a short poem, a communication from the journal to readers, and even the obituary of François Bordes. These works should not, in my opinion, be considered as 'articles' by OpenAlex. 1,086 papers among those with no reference are articles attributed to *Palestine Exploration Quaterly* for which references are all in footnotes and therefore not counted (n = 319) but they are mainly articles from Japanese journals (n = 767), most of them from the *Japan Society of Political Economy* which is a big issue of course. I therefore confirm that I need to remove all the papers with 0 references for the following statistical treatments.
+
+The number of works with only one or two references drops significantly to 1,183 and 1,057 respectively but remain unexpected to me. In these category, *Antiquity* is again largely dominant, with 539 and 409 papers respectively. I extracted a random sample of 30 works with one and two citations to manually check each of them. As for the random sample of 30 works with one reference, most of them are book reviews or short articles. Some values of a single reference are the reality, but most of them should have listed more references. The missing references are usually conference papers, book chapters, or publications in other languages than English (e.g. Russian, German). As for the random sample of 30 works with two references, it is also pretty bad since only eight among them have really two references cited. both lists of 30 works having one or two references in OpenAlex should have had a in reality a mean of more than 7 references! 
+
+Given the issues with references listed in OpenAlex, I think that some metrics calculated from this dataset will not be accurate. This is particularly the case for the diversity of sources, since so many sources are not considered at all and of course the missing references are not all coming from single journals. We can even think that big journals have their references correctly referenced with their DOI, while books, chapter books, conference proceedings are probably less referenced due to the absence of such permanent identifiers. This will of course lead the final result of diversity of sources to be strongly underevaluated.
+
+The entire code of @marwick_archaeology_2025 can then be executed with *only few* modifications.
 
 ## How does archaeology compare to other fields?
 
@@ -812,8 +909,8 @@ shannon_per_item_AQ %>%
   filter(shannon > 0) %>%
   ggplot(aes(1,
              shannon)) +
-  geom_boxplot(
-               size = 1)  +
+  geom_boxplot(aes(colour = "red"),
+               size = 1, show.legend = FALSE)  +
    # boxplot of data from Fanelli & Glänzel Fig 2
   geom_boxplot(data = sim_data %>% 
   filter(Variable == "Shannon div. of sources",
@@ -849,10 +946,8 @@ shannon_per_item_AQ %>%
 
 ```{r plot fig. 1 (BM)}
 #| label: fig-compare-other-fields
-#| fig-cap: Replication of the figure 1 of Marwick (2025) with OpenAlex data. Distributions of article characteristics hypothesised to reflect the level of consensus. The boxplot shows the distribution of values of archaeology articles. The thick black line in the middle of the boxplot is the median value, the box represents the inter-quartile range (the range between the 25th and 75th percentiles, where 50% of the data are located), and individual points represent outliers. The smaller coloured boxplots indicate the values computed by Fanelli and Glanzel (2013), where p = physics, s = social sciences, h = humanities. ln denotes the natural logarithm, or logarithm to the base e. 
+#| fig-cap: Replication of the figure 1 of Marwick (2025) with OpenAlex data. Distributions of article characteristics hypothesised to reflect the level of consensus. The boxplot shows the distribution of values of archaeology articles. The color is red for Diversity of source because I suspect this value to be largely underevaluated due to lack of references metadata. The thick line in the middle of the boxplot is the median value, the box represents the inter-quartile range (the range between the 25th and 75th percentiles, where 50% of the data are located), and individual points represent outliers. The smaller coloured boxplots indicate the values computed by Fanelli and Glanzel (2013), where p = physics, s = social sciences, h = humanities. ln denotes the natural logarithm, or logarithm to the base e. 
 #| fig-height: 4
-
-library(cowplot)
 
 plot_grid(boxlplot_n_authors, 
           boxlplot_rel_title_length,
@@ -862,7 +957,7 @@ plot_grid(boxlplot_n_authors,
           nrow = 2)
 ```
 
-@fig-compare-other-fields presents boxplots for archaeological journals (in black) that are quite similar to those in @marwick_archaeology_2025. In my study, the number of authors and article length are closer to social sciences than to physics. The relative title length is very similar to the WoS data, although it is again slightly closer to social sciences. The recency of references is more akin to humanities. The diversity of sources, calculated correctly with the OpenAlex data, is lower in archaeological journals than in the physics data from @fanelli_bibliometric_2013. Low values of Shannon's index indicate that articles from archaeological journals cite a limited number of different sources, which is typically interpreted as a characteristic of hard sciences [@fanelli_bibliometric_2013].
+@fig-compare-other-fields presents boxplots for archaeological journals (in black) that are quite similar to those in @marwick_archaeology_2025. In my study, the number of authors and article length are closer to social sciences than to physics. The relative title length is very similar to the WoS data, although it is again slightly closer to social sciences. The recency of references is more akin to humanities. The diversity of sources, calculated correctly with the OpenAlex data, is lower in archaeological journals than in the physics data from @fanelli_bibliometric_2013. Low values of Shannon's index indicate that articles from archaeological journals cite a limited number of different sources, which is typically interpreted as a characteristic of hard sciences [@fanelli_bibliometric_2013]. Nevertheless, as written above, this metric is probably strongly underestimated from OpenAlex dataset, given the lack of many references in the metadata of articles (books, book chapters, conferences, references in other languages than English etc.)
 
 In the WoS dataset, the proportion of articles published after 2012 is 70 %, for only 13 years out of the 50, or 26 % of the studied time range. On the other side, the post-2012 articles represent only 41 % of the OpenAlex dataset. Data for archaeology in figure 1 of @marwick_archaeology_2025 is thus strongly skewed towards recent publication habits rather than truly representing trends from 1975 to 2025. In contrast, the OpenAlex data presented in @fig-compare-other-fields is more representative of the entire time range.
 
@@ -1049,8 +1144,8 @@ shannon_per_item_AQ %>%
   filter(shannon > 0) %>%
   ggplot(aes(1,
              shannon)) +
-  geom_boxplot(
-               size = 1)  +
+  geom_boxplot(aes(colour = "red"),
+               size = 1, show.legend = FALSE)  +
    # boxplot of data from Fanelli & Glänzel Fig 2
   geom_boxplot(data = sim_data %>% 
   filter(Variable == "Shannon div. of sources",
@@ -1086,7 +1181,7 @@ shannon_per_item_AQ %>%
 
 ```{r plot boxplots_2012}
 #| label: fig-compare-other-fields_2012
-#| fig-cap: Replication of the figure 1 of Marwick (2025) for 2012 articles only as in Fanelli and Glanzel (2013), based on OpenAlex data. Distributions of article characteristics hypothesised to reflect the level of consensus. The thick black line in the middle of the boxplot is the median value, the box represents the inter-quartile range (the range between the 25th and 75th percentiles, where 50% of the data are located), and individual points represent outliers. The smaller coloured boxplots indicate the values computed by Fanelli and Glanzel (2013), where p = physics, s = social sciences, h = humanities. ln denotes the natural logarithm, or logarithm to the base e. 
+#| fig-cap: Replication of the figure 1 of Marwick (2025) for 2012 articles only as in Fanelli and Glanzel (2013), based on OpenAlex data. Distributions of article characteristics hypothesised to reflect the level of consensus.  The color is red for Diversity of source because I suspect this value to be largely underevaluated due to lack of references metadata. The thick line in the middle of the boxplot is the median value, the box represents the inter-quartile range (the range between the 25th and 75th percentiles, where 50% of the data are located), and individual points represent outliers. The smaller coloured boxplots indicate the values computed by Fanelli and Glanzel (2013), where p = physics, s = social sciences, h = humanities. ln denotes the natural logarithm, or logarithm to the base e. 
 #| fig-height: 4
 
 library(cowplot)
@@ -1511,7 +1606,7 @@ ggsave(plot_pca_means,
 knitr::include_graphics("figures/plot_pca_means.png")
 ```
 
-@fig-pca, equivalent to figure 4 of @marwick_archaeology_2025 (though the journals are not all the same, see @sec-compa_journals_lists), represents the characteristics of the journals in the top 25 by 2-years-mean-citedness of OpenAlex. The review journal *Journal of Archaeological Research* stands out significantly from the other journals, featuring a higher diversity of sources and longer papers. In the same direction on PC1 but in the opposite direction on PC2, *Journal of Archaeological Methods and Theory*, *Journal of World Prehistory*, *Journal of Social Archaeology*, and *Journal of Material Culture* are characterized by long articles with fewer authors, and references which are less diverse and less recent. Another part of the PCA is represented by harder science journals, with recent references, more authors and shorter papers. This group includes *Advances in Archaeological Practice*, *Archaeological Dialogues*, *Australian Archaeology*, *Archaeological Prospections*, and *Antiquity*. Large teams of authors, publishing rather short articles, and citing less diverse sources are typically what is published in *Journal of Archaeological Science: Reports*, *Archaeological and Anthropological Science*, *Archaeological Research in Asia*.
+@fig-pca, equivalent to figure 4 of @marwick_archaeology_2025 (though the journals are not all the same, see @sec-compa_journals_lists), represents the characteristics of the journals in the top 25 by 2-years-mean-citedness of OpenAlex. The review journal *Journal of Archaeological Research* stands out significantly from the other journals, featuring a higher diversity of sources and longer papers. In the same direction on PC1 but in the opposite direction on PC2, *Journal of Archaeological Methods and Theory*, *Journal of World Prehistory*, *Journal of Social Archaeology*, and *Journal of Material Culture* are characterized by long articles with fewer authors, and references which are less diverse and less recent. Another part of the PCA is represented by harder science journals, with recent references, more authors and shorter papers. This group includes *Advances in Archaeological Practice*, *Archaeological Dialogues* (for which many papers are short comments or answers), *Australian Archaeology*, *Archaeological Prospections*, and *Antiquity*. Large teams of authors, publishing rather short articles, and citing less diverse sources are typically what is published in *Journal of Archaeological Science: Reports*, *Archaeological and Anthropological Science*, *Archaeological Research in Asia*.
 
 ```{r short journal names}
 long_names = levels(factor(items_df$journal))
@@ -1727,13 +1822,13 @@ This attempt at reproducing and replicating @marwick_archaeology_2025 has been s
 
 First, the well-organized and shared data and scripts allowed me to easily reproduce the published paper with all its figures, confirming full computational reproducibility. Nevertheless, a few errors were identified in the code, which have been shared with the author through GitHub. The main issues exposed relate to the selection of the top 20 journals and to the calculation of the Shannon's index. The article states that the selection of journals is based on the H-index, whereas it is actually based on the 2022 Impact Factor in the code. This list is also missing two journals due to a problem of data sorting prior to subsetting. The second issue lies in the calculation of Shannon's index, which significantly modify the results for this metric.
 
-Second, the replication of the first part of @marwick_archaeology_2025 about the hard/soft position of archaeology within science has been conducted using the OpenAlex dataset instead of the Web of Science dataset. This open dataset, which is much larger than the WoS dataset but still less curated in some variables, allowed for the confirmation of most observations made in the replicated study. It confirms that the open and free dataset is usable for scientometrics analysis. It also confirms that archaeology can be positioned in terms of hard/soft science as intermediate between physics and humanities and often close to social sciences. The only strong difference lies in the diversity of sources as estimated by the Shannon's index. As previously explained, the calculation Shannon's index for the diversity of sources is incorrect in @marwick_archaeology_2025. When corrected in his code, evan while still using the WoS dataset, the result is quite different from the result presented in the article: the corrected diversity of sources is even more in the direction of soft science, higher than social sciences and humanities. In the OpenAlex dataset, with the correct calculation, Shannon's index values are lower for archaeology than for the other three disciplines (@fig-compare-other-fields), and this is also the case when only articles from 2012 are used (@fig-compare-other-fields_2012). Shannon's index calculated from OpenAlex's data suggests a very low diversity, lower than that of physics, and therefore would indicate a hard science behavior of archaeologists when citing scientific articles. This could be interpreted as evidence that, in archaeology, "*scholars agree on the relative importance of scientific problems, their efforts [...] concentrate in specific fields and their findings [are] of more general interest, leading to a greater concentration of the relevant literature in few, high-ranking outlets*" [@fanelli_bibliometric_2013]. Observing the strong dominance of *Journal of Archaeological Science* and the presence of *Nature*, *Science*, and *PNAS* in the top 20 cited journals in archaeology (@tbl-top20journals) could indeed indicate that archaeology relies on a relatively small number of journals, and especially high-ranking ones. Despite this observation, I wonder if this is due to the agreement of scholars on the relative importance of scientific problems as mentioned by @fanelli_bibliometric_2013, or if it is due to the ability of archaeological results to be published relatively more easily than other disciplines in these high-ranking journals, particularly in the archaeology of ancient periods. It may also indicate that the number of archaeological journals is smaller than in other disciplines, though I am unsure if this is true, and I am not aware of any studies on this topic. A recent study focusing on the publications in archaeology between 2020 and 2023 also shows quite a high concentration of citations in few journals [Table 2 in @velazciaurriz_revision_2023]. It may also be the result of the lack of information about many references in published articles when they cite books, book chapters or grey literature, which are not recorded correctly in either database, but may be even stronger in OpenAlex and therefore explain the concentration of citations from journals only and then artificially reducing the diversity of sources.
+Second, the replication of the first part of @marwick_archaeology_2025 about the hard/soft position of archaeology within science has been conducted using the OpenAlex dataset instead of the Web of Science dataset. This open dataset, which is much larger than the WoS dataset but still less curated in some variables, allowed for the confirmation of most observations made in the replicated study. It confirms that the open and free dataset is usable for scientometrics analysis. It also confirms that archaeology can be positioned in terms of hard/soft science as intermediate between physics and humanities and often close to social sciences. The only strong difference lies in the diversity of sources as estimated by the Shannon's index. As previously explained, the calculation Shannon's index for the diversity of sources is incorrect in @marwick_archaeology_2025. When corrected in his code, evan while still using the WoS dataset, the result is quite different from the result presented in the article: the corrected diversity of sources is even more in the direction of soft science, higher than social sciences and humanities. In the OpenAlex dataset, with the correct calculation, Shannon's index values are lower for archaeology than for the other three disciplines (@fig-compare-other-fields), and this is also the case when only articles from 2012 are used (@fig-compare-other-fields_2012). Shannon's index calculated from OpenAlex's data suggests a very low diversity, lower than that of physics, and therefore would indicate a hard science behavior of archaeologists when citing scientific articles. This could be interpreted as evidence that, in archaeology, "*scholars agree on the relative importance of scientific problems, their efforts [...] concentrate in specific fields and their findings [are] of more general interest, leading to a greater concentration of the relevant literature in few, high-ranking outlets*" [@fanelli_bibliometric_2013]. Observing the strong dominance of *Journal of Archaeological Science* and the presence of *Nature*, *Science*, and *PNAS* in the top 20 cited journals in archaeology (@tbl-top20journals) could indeed indicate that archaeology relies on a relatively small number of journals, and especially high-ranking ones. Despite this observation, I wonder if this is due to the agreement of scholars on the relative importance of scientific problems as mentioned by @fanelli_bibliometric_2013, or if it is due to the ability of archaeological results to be published relatively more easily than other disciplines in these high-ranking journals, particularly in the archaeology of ancient periods. It may also indicate that the number of archaeological journals is smaller than in other disciplines, though I am unsure if this is true, and I am not aware of any studies on this topic. A recent study focusing on the publications in archaeology between 2020 and 2023 also shows quite a high concentration of citations in few journals [Table 2 in @velazciaurriz_revision_2023]. It may also be the result of the lack of information about many references in published articles when they cite books, book chapters, conference, or literature in other languages than English, which are not recorded correctly in either database, but may be even stronger in OpenAlex and therefore explain the concentration of citations from journals only and then artificially reducing the diversity of sources.
 
 The comparison of different journals for each metric measured in this study is also generally similar to the results published in @marwick_archaeology_2025, although it is sometimes difficult to compare because the lists of journals in both manuscripts are different. Some journals are positioned in the PCA in the same way with both datasets, particularly on the more extreme soft or hard sides (@fig-pca). Changing the calculation of Shannon's index almost do not alters the PCA of @marwick_archaeology_2025. The rankings are also quite similar for the journals which are in both lists (@fig-variation-by-journal), but the OpenAlex dataset shows much more diversity for each journal across most metrics. The higher number of articles in the OpenAlex dataset offers a more nuanced view of the behavior of each journal. This may be due to the inclusion of more ancient articles compared to the WoS dataset, which comprises 70% of post-2012 articles. Alternatively, it may also result from some data being poorly documented in OpenAlex, especially for the oldest articles?
 
 # Conclusion
 
-This work confirmed the reproducibility and replicability of the first part of @marwick_archaeology_2025. The reproducibility was easy to implement, but not totally without errors. The replication of the results with the OpenAlex dataset allowed me to identify these errors by applying the code to another dataset, which compelled me to delve deeper into the code. This process underscore (if necessary) the value of reusing and learning from the code and data of a skilled colleague, a method also employed by the author of the replicated study himself to train his students [@marwick_how_2020]. The results obtained using the OpenAlex dataset, which is entirely free and open source, generally align with those published by @marwick_archaeology_2025. The primary difference lie in the references listed in the articles which can be automatically extracted. The findings indicate that the OpenAlex dataset is less influenced by recent trends in publications than the Web of Science dataset, as it maintains a more balanced number of articles over the 50-year period studied. This replication supports the idea that it is totally possible to use this extensive database for scientometrics analyses, particularly considering that this database will continue to expand and improve in the future. I hope the data about other types of sources than articles will imrpvoe in the future, it is extremely important for our discipline which greatly relies on other types of publications than journal articles.
+This work confirmed the reproducibility and replicability of the first part of @marwick_archaeology_2025. The reproducibility was easy to implement, but not totally without errors. The replication of the results with the OpenAlex dataset allowed me to identify these errors by applying the code to another dataset, which compelled me to delve deeper into the code. This process underscore (if necessary) the value of reusing and learning from the code and data of a skilled colleague, a method also employed by the author of the replicated study himself to train his students [@marwick_how_2020]. The results obtained using the OpenAlex dataset, which is entirely free and open source, generally align with those published by @marwick_archaeology_2025. The primary difference lie in the references listed in the articles which can be automatically extracted. The findings indicate that the OpenAlex dataset is less influenced by recent trends in publications than the Web of Science dataset, as it maintains a more balanced number of articles over the 50-year period studied. This replication supports the idea that it is totally possible to use this extensive database for scientometrics analyses, particularly considering that this database will continue to expand and improve in the future. The main issue remains the data about cited references which clearly has issues finding many of the other sources than journal articles on which our discipline strongly relies.
 
 # Data and script availability
 
