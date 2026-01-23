@@ -1,7 +1,5 @@
-This folder contains the data needed to reproduce my replication of Marwick
+This folder should contain the data needed to reproduce my replication of Marwick
 
-Especially, it contains the .rds files that are very time consuming to produce due to the many requests needed to the OpenAlex API.
-Having these files on your computer will allow to reproduce the manuscript without making the dozens of hours of requests to the OpenAlex API. 
-The chunks of code doing these request are therefore in the quarto document but in "eval: false" so that rendering the document do not make the requests. 
-And the chunks following these thus load the .rds.
+Especially, it should contain the .rds files that are very time consuming to produce due to the many requests needed to the OpenAlex API.
 
+These files are too big for GitHub so you can find them in the Zenodo repository instead: https://doi.org/10.5281/zenodo.15828518
