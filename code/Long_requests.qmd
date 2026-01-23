@@ -1,0 +1,572 @@
+---
+title: "Long_requets"
+format: html
+editor: visual
+---
+
+```{r load libraries}
+#| output: false
+#| cache: false
+
+library(openalexR)
+library(dplyr)
+library(jsonlite)
+library(tools)
+library(stringr)
+library(purrr)
+library(tidyr)
+library(broom)
+library(tidyverse)
+library(httr)
+library(jsonlite)
+```
+
+# Introduction
+
+This document contains all the chunks of code which are very long to compute because they make many requests to the API servers of OpenAlex or OpenCitations or necessitate the processing of the big files created by these requests. The requests have been run once, and the result saved in .rds files. These .rds files are read in the main quarto document.
+
+I copy the chunks here in the same layout as the main document.
+
+# Replicating the bibliometric study with data from OpenAlex
+
+## Data extraction from OpenAlex
+
+### Articles' data extraction
+
+#### Using the openalexR package
+
+The following chunk downloads **all the articles' metadata** listed in OpenAlex for the 'Archaeology' subfield which have been published between 1975 and 2025. This takes a very long time and creates big files.
+
+```{r Downloading data for 'Archaeology' articles in OpenAlex (AQ)}
+#| eval: false
+
+# This data extraction takes several hours.
+
+# Here we extract the articles in the subfield Archaeology 
+works_archaeology_search_1975_1985 <- oa_fetch(
+  entity = "works",
+  type = "article",
+  topics.subfield.id = "1204", # 1204 is the id of the subfield Archaeology
+  count_only = FALSE,
+  output = "dataframe",
+  from_publication_date = "1975-01-01",
+  to_publication_date = "1985-12-31",
+  verbose = TRUE)
+
+works_archaeology_search_1986_1995 <- oa_fetch(
+  entity = "works",
+  type = "article",
+  topics.subfield.id = "1204",
+  count_only = FALSE,
+  output = "dataframe",
+  from_publication_date = "1986-01-01",
+  to_publication_date = "1995-12-31",
+  verbose = TRUE
+)
+
+works_archaeology_search_1996_2000 <- oa_fetch(
+  entity = "works",
+  type = "article",
+  topics.subfield.id = "1204",
+  count_only = FALSE,
+  output = "dataframe",
+  from_publication_date = "1996-01-01",
+  to_publication_date = "2000-12-31",
+  verbose = TRUE
+)
+
+works_archaeology_search_2001_2003 <- oa_fetch(
+  entity = "works",
+  type = "article",
+  topics.subfield.id = "1204",
+  count_only = FALSE,
+  output = "dataframe",
+  from_publication_date = "2001-01-01",
+  to_publication_date = "2003-12-31",
+  verbose = TRUE
+)
+
+works_archaeology_search_2004_2007 <- oa_fetch(
+  entity = "works",
+  type = "article",
+  topics.subfield.id = "1204",
+  count_only = FALSE,
+  output = "dataframe",
+  from_publication_date = "2004-01-01",
+  to_publication_date = "2007-12-31",
+  verbose = TRUE
+)
+
+works_archaeology_search_2008_2011 <- oa_fetch(
+  entity = "works",
+  type = "article",
+  topics.subfield.id = "1204",
+  count_only = FALSE,
+  output = "dataframe",
+  from_publication_date = "2008-01-01",
+  to_publication_date = "2011-12-31",
+  verbose = TRUE
+)
+
+works_archaeology_search_2012_2015 <- oa_fetch(
+  entity = "works",
+  type = "article",
+  topics.subfield.id = "1204",
+  count_only = FALSE,
+  output = "dataframe",
+  from_publication_date = "2012-01-01",
+  to_publication_date = "2015-12-31",
+  verbose = TRUE
+)
+
+works_archaeology_search_2016_2019 <- oa_fetch(
+  entity = "works",
+  type = "article",
+  topics.subfield.id = "1204",
+  count_only = FALSE,
+  output = "dataframe",
+  from_publication_date = "2016-01-01",
+  to_publication_date = "2019-12-31",
+  verbose = TRUE
+)
+
+works_archaeology_search_2020_2022 <- oa_fetch(
+  entity = "works",
+  type = "article",
+  topics.subfield.id = "1204",
+  count_only = FALSE,
+  output = "dataframe",
+  from_publication_date = "2020-01-01",
+  to_publication_date = "2022-12-31",
+  verbose = TRUE
+)
+
+works_archaeology_search_2023_2024 <- oa_fetch(
+  entity = "works",
+  type = "article",
+  topics.subfield.id = "1204",
+  count_only = FALSE,
+  output = "dataframe",
+  from_publication_date = "2023-01-01",
+  to_publication_date = "2024-12-31",
+  verbose = TRUE
+)
+
+works_archaeology_search_2025 <- oa_fetch(
+  entity = "works",
+  type = "article",
+  topics.subfield.id = "1204",
+  count_only = FALSE,
+  output = "dataframe",
+  from_publication_date = "2025-01-01",
+  to_publication_date = "2025-12-31",
+  verbose = TRUE
+)
+
+# Combining the data together
+works_archaeology_1975_2025 <- rbind(works_archaeology_search_1975_1985,works_archaeology_search_1986_1995,works_archaeology_search_1996_2000,works_archaeology_search_2001_2003,works_archaeology_search_2004_2007,works_archaeology_search_2008_2011,works_archaeology_search_2012_2015,works_archaeology_search_2016_2019,works_archaeology_search_2020_2022,works_archaeology_search_2023_2024,works_archaeology_search_2025)
+
+saveRDS(works_archaeology_1975_2025, "data/OpenAlex_works_archaeology_1975_2025.rds")
+
+# Define the variables we want to keep in the shorter version of this 1.8 million-lines dataframe
+variables_to_keep <- c("id", "title", "authorships","doi","publication_year","source_display_name","host_organization_name","referenced_works_count","first_page","last_page","abstract","referenced_works")
+
+# Apply the selection of variables to the list of papers extracted from OpenAlex
+# and cleaning it (titles, page numbers, preparing authors' lists, removing duplicates)
+
+works_archaeology_short_1975_2025 <- works_archaeology_1975_2025 %>% select(all_of(variables_to_keep)) %>% 
+  mutate(title = str_trim(title)) %>% # delete double space
+  mutate(title = str_to_lower(title)) %>% # put titles to lower case
+  mutate(title = str_remove(title, "<i>")) %>%
+  mutate(title = str_remove(title, "</i>")) %>% 
+  mutate(referenced_works = str_remove(referenced_works, "\n")) %>%
+  mutate(authors = map_chr(authorships, ~ paste(.x$display_name, collapse = ", "))) %>%
+  distinct(title, .keep_all = TRUE)  # removes works present more than once based on title
+
+saveRDS(works_archaeology_short_1975_2025, "data/OpenAlex_works_archaeology_short_1975_2025.rds")
+
+# Keeping only the articles from the OpenAlex top25 2-year mean citedness journals
+works_archaeology_top25_1975_2025 <- works_archaeology_short_1975_2025 %>% filter(source_display_name %in% jci_top_25_2ymc$display_name)
+
+# Grouping by source to know how many journals in archaeology
+sources <- works_archaeology_short_1975_2025 %>%
+  group_by(source_display_name) %>%
+  summarise(n = n(), .groups = "drop")
+
+sources_100articles <- sources %>% filter(n>99)
+n_sources_100articles <- nrow(sources_100articles)
+sources_500articles <- sources %>% filter(n>499)
+n_sources_500articles <- nrow(sources_500articles)
+sources_1000articles <- sources %>% filter(n>999)
+n_sources_1000articles <- nrow(sources_1000articles)
+```
+
+The following chunk downloads the metadata **only for the articles published in the top-25-2ymc**. This takes only few minutes.
+
+```{r Downloading OpenAlex works from top25 2ymc journals (AQ)}
+#| eval: false
+
+# Time consuming (few minutes) but result saved in .rds
+
+# Below the code download several batch of data only for the top25 journals identified by their 2ymc value so that it is too big, and then bind them all together in a single tibble with the necessary variables and not all of them.
+
+works_search_1975_1985 <- oa_fetch(
+  entity = "works",
+  type = "article",
+  journal = id_25_2ymc, # id is the list of top25 2ymc journals OpenAlex ids
+  count_only = FALSE,
+  output = "dataframe",
+  from_publication_date = "1975-01-01",
+  to_publication_date = "1985-12-31",
+  verbose = TRUE)
+
+works_search_1986_1995 <- oa_fetch(
+  entity = "works",
+  type = "article",
+  journal = id_25_2ymc, # id is the list of top25 2ymc journals OpenAlex ids
+  count_only = FALSE,
+  output = "dataframe",
+  from_publication_date = "1986-01-01",
+  to_publication_date = "1995-12-31",
+  verbose = TRUE
+)
+
+works_search_1996_2000 <- oa_fetch(
+  entity = "works",
+  type = "article",
+  journal = id_25_2ymc, # id is the list of top25 2ymc journals OpenAlex ids
+  count_only = FALSE,
+  output = "dataframe",
+  from_publication_date = "1996-01-01",
+  to_publication_date = "2000-12-31",
+  verbose = TRUE
+)
+
+works_search_2001_2003 <- oa_fetch(
+  entity = "works",
+  type = "article",
+  journal = id_25_2ymc, # id is the list of top25 2ymc journals OpenAlex ids
+  count_only = FALSE,
+  output = "dataframe",
+  from_publication_date = "2001-01-01",
+  to_publication_date = "2003-12-31",
+  verbose = TRUE
+)
+
+works_search_2004_2007 <- oa_fetch(
+  entity = "works",
+  type = "article",
+  journal = id_25_2ymc, # id is the list of top25 2ymc journals OpenAlex ids
+  count_only = FALSE,
+  output = "dataframe",
+  from_publication_date = "2004-01-01",
+  to_publication_date = "2007-12-31",
+  verbose = TRUE
+)
+
+works_search_2008_2011 <- oa_fetch(
+  entity = "works",
+  type = "article",
+  journal = id_25_2ymc, # id is the list of top25 2ymc journals OpenAlex ids
+  count_only = FALSE,
+  output = "dataframe",
+  from_publication_date = "2008-01-01",
+  to_publication_date = "2011-12-31",
+  verbose = TRUE
+)
+
+works_search_2012_2015 <- oa_fetch(
+  entity = "works",
+  type = "article",
+  journal = id_25_2ymc, # id is the list of top25 2ymc journals OpenAlex ids
+  count_only = FALSE,
+  output = "dataframe",
+  from_publication_date = "2012-01-01",
+  to_publication_date = "2015-12-31",
+  verbose = TRUE
+)
+
+works_search_2016_2019 <- oa_fetch(
+  entity = "works",
+  type = "article",
+  journal = id_25_2ymc, # id is the list of top25 2ymc journals OpenAlex ids
+  count_only = FALSE,
+  output = "dataframe",
+  from_publication_date = "2016-01-01",
+  to_publication_date = "2019-12-31",
+  verbose = TRUE
+)
+
+works_search_2020_2023 <- oa_fetch(
+  entity = "works",
+  type = "article",
+  journal = id_25_2ymc, # id is the list of top25 2ymc journals OpenAlex ids
+  count_only = FALSE,
+  output = "dataframe",
+  from_publication_date = "2020-01-01",
+  to_publication_date = "2023-12-31",
+  verbose = TRUE
+)
+
+works_search_2024_2025 <- oa_fetch(
+  entity = "works",
+  type = "article",
+  journal = id_25_2ymc, # id is the list of top25 2ymc journals OpenAlex ids
+  count_only = FALSE,
+  output = "dataframe",
+  from_publication_date = "2024-01-01",
+  to_publication_date = "2025-12-31",
+  verbose = TRUE
+)
+
+# Combining the data together
+liste_tibbles <- list(works_search_1975_1985,works_search_1986_1995,works_search_1996_2000,works_search_2001_2003,works_search_2004_2007,works_search_2008_2011,works_search_2012_2015,works_search_2016_2019,works_search_2020_2023,works_search_2024_2025)
+
+
+# Define the variables we want to keep
+variables_to_keep <- c("id", "title", "authorships","doi","publication_year","source_display_name","host_organization_name","referenced_works_count","first_page","last_page","abstract","referenced_works")
+
+# Apply the selection to the list of papers extracted from OpenAlex
+# and cleaning it (titles, page numbers, preparing authors' lists, removing duplicates)
+
+Works_top25_1975_2025 <- bind_rows(lapply(liste_tibbles, function(x) {
+  x %>% select(all_of(variables_to_keep)) })) %>% 
+  mutate(title = str_trim(title)) %>% # delete double space
+  mutate(title = str_to_lower(title)) %>% # put titles to lower case
+  mutate(title = str_remove(title, "<i>")) %>%
+  mutate(title = str_remove(title, "</i>")) %>% 
+  mutate(referenced_works = str_remove(referenced_works, "\n")) %>%
+  mutate(authors = map_chr(authorships, ~ paste(.x$display_name, collapse = ", "))) %>%
+  distinct(title, .keep_all = TRUE)  # removes ca. 1477 works present more than once (based on title)
+
+# Prepare dataframe exactly as in Marwick 2025
+items_df = dplyr::tibble(
+    authors =         Works_top25_1975_2025$authors,
+    authors_n =       map_int(Works_top25_1975_2025$authorships, ~ nrow(.x)),
+    title =           Works_top25_1975_2025$title,
+    title_n =         sapply(strsplit(Works_top25_1975_2025$title, "\\s+"), length),
+    journal =         Works_top25_1975_2025$source_display_name,
+    abstract  =       Works_top25_1975_2025$abstract,
+    refs =            Works_top25_1975_2025$referenced_works,
+    refs_n =          Works_top25_1975_2025$referenced_works_count,
+    pages_n =         as.numeric(Works_top25_1975_2025$last_page)-as.numeric(Works_top25_1975_2025$first_page),
+    year =            Works_top25_1975_2025$publication_year,
+    doi =             Works_top25_1975_2025$doi
+  )
+
+items_df = items_df %>% filter(journal %in% jci_top_25_2ymc$display_name)
+
+# save to disk so we can re-use it for the next steps to save time
+saveRDS(items_df, "data/OpenAlex_Works_top25_1975_2025.rds")
+```
+
+The following chnk download the metadata for all the references cited in every article published between 1975 and 2025 in the top-25-2ymc. this takes more than 20 hours to do.
+
+```{r get year and journals of refs through OpenAlex API (AQ)}
+#| label: get year for each ref of each paper
+#| eval: false
+#very time consuming but result saved in .rds
+
+# Beware this takes ca. 20 hours (45k requests to the API) and should not be run if not really necessary
+# Use the result year_refs_list.rds instead
+# Thus, I put eval: false to this chunk so that it does not run when rendering the quarto document!
+
+items_df = readRDS("data/OpenAlex_Works_top25_1975_2025.rds")
+
+# Keeping only the OpenAlex ID of each ref in the refs variable
+items_df = items_df  %>% 
+  mutate(refs = str_remove_all(refs, "https://openalex.org/")) %>%
+  mutate(refs = str_remove(refs, "^c\\(")) %>%
+  mutate(refs = str_remove_all(refs, '"')) %>%
+  mutate(refs = str_remove_all(refs, '\\)')) %>%
+  mutate(refs = str_remove_all(refs, '\n'))
+
+# Creating the list before the loop
+year_refs_list <- list()
+journal_refs_list <- list()
+
+# Loop for getting the list of all refs for each paper and keeping only its publication years 
+# (very very long)
+for (i in 1:nrow(items_df)) {
+year_refs_search <- tryCatch({
+  oa_fetch(
+  entity = "works",
+  identifier = strsplit(items_df$refs[[i]], ", ")[[1]],
+  count_only = FALSE,
+  output = "dataframe",
+  verbose = TRUE,
+  mailto = "alain.queffelec@u-bordeaux.fr"
+) 
+}, error = function(e) {
+    message(paste("Error fetching data for row", i, ": ", e$message))
+    NULL
+  })
+
+if (!is.null(year_refs_search)) {
+    year_refs <- year_refs_search$publication_year
+    journals <- year_refs_search$source_display_name
+    year_refs_list[[i]] <- year_refs
+    journal_refs_list[[i]] <- journals
+  }
+}
+
+# Save the list on the disk
+saveRDS(year_refs_list, "data/year_refs_list.rds")
+saveRDS(journal_refs_list, "data/journal_refs_list.rds")
+```
+
+## Comparison between WoS and OpenAlex
+
+### Articles' comparison
+
+The following chunk of code allows to extract from OpenCitations the number of references cited by each article based on a list of DOIs.
+
+```{r extracting number of references from OpenCitations for articles in OpenAlex and WoS (AQ)}
+#| eval: false
+
+# Function to call the API of OpenCitations and extract the number of references for each article identified by its doi
+get_references_count <- function(doi) {
+  API_CALL <- paste0("https://api.opencitations.net/index/v2/references/doi:", doi,"?format=csv")
+
+  # make the API request
+  response <- GET(url = API_CALL)
+
+  # check the status of the response
+  if (status_code(response) == 200) {
+    data <- content(response, as = "parsed")
+    # Extract the number of citations
+    references_count <- nrow(data)
+    return(references_count)
+  } else {
+    message(paste("Error for the DOI", doi, ": Code HTTP", status_code(response)))
+    return(NA)
+  }
+}
+
+# List of common dois from OpenAlex and WoS
+dois <- Common_Articles_limited_short$doi_OA
+
+# Preparation of batches of request since the number is limited by OpenCitations
+batch_size <- 180
+total_dois <- length(dois)
+total_batches <- ceiling(total_dois / batch_size)
+
+# List to store the results
+results <- data.frame()
+
+# Loop to request the references by batches
+for (i in 1:total_batches) {
+  start_idx <- (i - 1) * batch_size + 1
+  end_idx <- min(i * batch_size, total_dois)
+
+  current_batch <- dois[start_idx:end_idx]
+
+  # Request for each doi of the batch
+  batch_results <- as.data.frame(sapply(current_batch, get_references_count))
+
+  # Merge this batch with previous batches
+  results <- c(results, batch_results)
+
+  # Display of the current step
+  cat(paste("Batch", i, "in", total_batches, "just treated.\n"))
+
+  # Pause of 70 s between batches since OpenCitations limit the number of request per minute
+  if (i < total_batches) {
+    cat("70s pause  before next batch.\n")
+    Sys.sleep(70)
+  }
+}
+
+# Convert results in a dataframe
+refs_OpenCitations <- do.call(rbind, lapply(results, as.data.frame))
+refs_OpenCitations$doi = Common_Articles_limited_short$doi_OA
+colnames(refs_OpenCitations) = c("refs_n_OC","doi")
+rownames(refs_OpenCitations) <- NULL
+
+# Save the results on the disk
+saveRDS(refs_OpenCitations, "data/refs_OpenCitations.rds")
+```
+
+The following chunk of code allows to extract from OpenCitations the metadata of articles based on a list of DOIs.
+
+```{r extracting informations from OpenCitations for articles in both OpenAlex and WoS (AQ)}
+#| eval: false
+#| cache: TRUE
+
+# Function to call the API of OpenCitations and extract the number of references for each article identified by its doi
+get_metadata <- function(doi) {
+  API_CALL <- paste0("https://api.opencitations.net/meta/v1/metadata/doi:", doi,"?format=csv")
+
+  # make the API request
+  response <- GET(url = API_CALL)
+
+  # check the status of the response
+  if (status_code(response) == 200) {
+    metadata <- content(response, as = "parsed")
+    return(metadata)
+  } else {
+    message(paste("Error for the DOI", doi, ": Code HTTP", status_code(response)))
+    return(NA)
+  }
+}
+
+# List of common dois from OpenAlex and WoS
+dois <- Common_Articles_limited_short$doi_OA
+
+# Preparation of batches of request since the number is limited by OpenCitations
+batch_size <- 180
+total_dois <- length(dois)
+total_batches <- ceiling(total_dois / batch_size)
+
+# List to store the results
+results <- list()
+
+# Loop to request the references by batches
+for (i in 1:total_batches) {
+  start_idx <- (i - 1) * batch_size + 1
+  end_idx <- min(i * batch_size, total_dois)
+
+  current_batch <- dois[start_idx:end_idx]
+
+  # Request for each doi of the batch
+  batch_results <- as.data.frame(sapply(current_batch, get_metadata))
+
+  # Merge this batch with previous batches
+  results <- c(results, batch_results)
+
+  # Display of the current step
+  cat(paste("Batch", i, "in", total_batches, "just treated.\n"))
+
+  # Pause of 70 s between batches since OpenCitations limit the number of request per minute
+  if (i < total_batches) {
+    cat("70s pause  before next batch.\n")
+    Sys.sleep(70)
+  }
+}
+
+#keep only the year for the pub_date
+results_year <- lapply(results, function(obj) {
+  obj$pub_date <- substr(obj$pub_date, 1, 4)
+  return(obj)
+})
+
+# Convert results in a dataframe
+infos_OpenCitations <- do.call(rbind, lapply(results_year, as.data.frame))
+infos_OpenCitations$doi_OC = row.names(infos_OpenCitations)
+rownames(infos_OpenCitations) <- NULL
+
+# Prepare data for comparison title_n_OC etc.
+infos_OpenCitations$title_n_OC = sapply(strsplit(infos_OpenCitations$title, "\\s+"), length)
+infos_OpenCitations$authors_n_OC = sapply(infos_OpenCitations$author, function(x) str_count(x, fixed("[")))
+infos_OpenCitations = infos_OpenCitations %>%
+  separate(col = page, into = c("first_page", "last_page"), sep = "-") %>%
+  mutate(
+    first_page = as.numeric(first_page),
+    last_page = as.numeric(last_page),
+    pages_n_OC = last_page - first_page + 1
+  )
+infos_OpenCitations$year_OC = as.numeric(infos_OpenCitations$pub_date)
+
+# Save the results on the disk
+saveRDS(infos_OpenCitations, "data/infos_OpenCitations.rds")
+```
